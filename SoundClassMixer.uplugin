@@ -1,0 +1,24 @@
+{
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "1.0",
+	"FriendlyName": "SoundClassMixer",
+	"Description": "Made For Joheny Ro1se",
+	"Category": "Audio",
+	"CreatedBy": "Zly",
+	"CreatedByURL": "https://github.com/Zly-u",
+	"DocsURL": "https://github.com/Zly-u/UE_Plugin_SoundClassMixer/wiki",
+	"MarketplaceURL": "",
+	"SupportURL": "https://github.com/Zly-u/UE_Plugin_SoundClassMixer",
+	"CanContainContent": false,
+	"IsBetaVersion": false,
+	"IsExperimentalVersion": false,
+	"Installed": false,
+	"Modules": [
+		{
+			"Name": "SoundClassMixer",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		}
+	]
+}
