@@ -452,9 +452,8 @@ public:
 			}
 		}
 	}
-
-	/* Expose the functions defined in the base class. */
-	using FCanvasItem::Draw;
+	
+	using FCanvasItem::Draw; // Expose the functions defined in the base class.
 
 	void AddElement(const FString& ColumnName, const FString& RowName, const FString& Value)
 	{
