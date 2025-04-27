@@ -66,13 +66,6 @@ private:
 private:
 	void OnSoundClassAssetAdded(const FAssetData& AssetData);
 	void OnSoundClassAssetRemoved(const FAssetData& AssetData);
-
-	void ToggleDebugDraw();
-	bool bDrawDebug = false;
-	void OnDrawDebug(UCanvas* Canvas, APlayerController* PC);
-	
-	FDelegateHandle DebugDrawDelegateHandle;
-	TSharedPtr<class FAutoConsoleCommand> ToggleDebugCommand;
 #endif
 
 public:
