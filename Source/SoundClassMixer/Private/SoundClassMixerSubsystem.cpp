@@ -17,7 +17,7 @@ void USoundClassMixerSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 	Super::Initialize(Collection);
 	
 	FSoundClassMixerCommands::RegisterCommands(this);
-
+	
 #if WITH_EDITOR
 	ToggleDebugCommand = MakeShareable(new FAutoConsoleCommand(
 		TEXT("SoundClassMixer.ToggleDebugDraw"),
@@ -40,9 +40,11 @@ void USoundClassMixerSubsystem::Deinitialize()
 {
 	check(bInitialized);
 
+#if WITH_EDITOR
 	FSoundClassMixerCommands::UnregisterCommands();
 	UDebugDrawService::Unregister(DebugDrawDelegateHandle);
 	ToggleDebugCommand.Reset();
+#endif
 	
 	bInitialized = false;
 	
