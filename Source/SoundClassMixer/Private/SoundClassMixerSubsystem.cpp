@@ -290,17 +290,41 @@ class FCanvasTableItem : public FCanvasItem
 {
 public:
 	FCanvasTableItem(const FVector2D& InPosition)
-		: FCanvasItem(InPosition), BorderThickness(1.0f), Padding(5.0), InSizeMultiplier(1.0)
-	{
-		Color = BorderColor;
-	}
+		: FCanvasItem(InPosition),
+		BorderThickness(1.0f),
+		CellLinesThickness(1.0f),
+		Padding(5.0), SizeMultiplier(1.0)
+	{}
 
 	virtual void Draw(FCanvas* InCanvas) override {
 		SetupTableCorners();
 
-		FCanvasTileItem Bg(Position, CalculatedTableSize, WindowBgColor);
+		// Elements BG
+		FCanvasTileItem Bg(
+			Position + FVector2D(MaxRowLabelWidth, MaxColumnLabelHeight),
+			CalculatedTableSize - FVector2D(MaxRowLabelWidth, MaxColumnLabelHeight),
+			WindowBgColor
+		);
 		Bg.BlendMode = SE_BLEND_Translucent;
 		InCanvas->DrawItem(Bg);
+
+		// Columns Headers Bg
+		FCanvasTileItem CH_Bg(
+			Position + FVector2D(MaxRowLabelWidth, 0),
+			FVector2D(CalculatedTableSize.X - MaxRowLabelWidth, MaxColumnLabelHeight),
+			ColumnsCellColor
+		);
+		CH_Bg.BlendMode = SE_BLEND_Translucent;
+		InCanvas->DrawItem(CH_Bg);
+
+		// Rows Headers Bg
+		FCanvasTileItem CR_Bg(
+			Position + FVector2D(0, MaxColumnLabelHeight),
+			FVector2D(MaxRowLabelWidth, CalculatedTableSize.Y - MaxColumnLabelHeight),
+			RowsCellColor
+		);
+		CR_Bg.BlendMode = SE_BLEND_Translucent;
+		InCanvas->DrawItem(CR_Bg);
 		
 		FBatchedElements* BatchedElements = InCanvas->GetBatchedElements(FCanvas::ET_Line);
 		const FHitProxyId HitProxyId = InCanvas->GetHitProxyId();
@@ -320,7 +344,7 @@ public:
 					Position.Y + CalculatedTableSize.Y,
 					0.0f
 				),
-				CellsLinesColor, HitProxyId, BorderThickness
+				CellsLinesColor, HitProxyId, CellLinesThickness
 			);
 
 			PrevColumnPos += TableColumnWidth[ColumnIndex];
@@ -341,7 +365,7 @@ public:
 					PrevRowPos,
 					0.0f
 				),
-				CellsLinesColor, HitProxyId, BorderThickness
+				CellsLinesColor, HitProxyId, CellLinesThickness
 			);
 			
 			PrevRowPos += TableRowHeight[RowIndex];
@@ -461,6 +485,24 @@ public:
 		
 		TableElements[Y_Index][X_Index] = Value;
 	}
+
+public:
+	void SetPadding(const float NewPadding)
+	{
+		Padding = NewPadding;
+	}
+	void SetBorderThickness(const float NewThickness)
+	{
+		BorderThickness = NewThickness;
+	}
+	void SetCellLinesThickness(const float NewThickness)
+	{
+		CellLinesThickness = NewThickness;
+	}
+	void SetSizeMultiplier(const float NewSizeMultiplier)
+	{
+		SizeMultiplier = NewSizeMultiplier;
+	}
 	
 private:
 	void SetupTableCorners()
@@ -492,17 +534,20 @@ private:
 	}
 	
 public:
-	FLinearColor WindowBgColor		 = FLinearColor(0,0,0, 0.4);
-	FLinearColor BorderColor		 = FLinearColor::Black;
-	FLinearColor CellsLinesColor	 = FLinearColor(1,1,1, 0.25);
-	FLinearColor ColumnsHeadersColor = FLinearColor::Green;
-	FLinearColor ColumnsLabelsColor  = FLinearColor::Green;
-	FLinearColor RowsLabelsColor	 = FLinearColor::Green;
+	FLinearColor WindowBgColor	 = FLinearColor(0,0,0, 0.4);
+	FLinearColor BorderColor	 = FLinearColor::Black;
+	FLinearColor CellsLinesColor = FLinearColor(1,1,1, 0.25);
+
+	FLinearColor ColumnsCellColor	= FLinearColor(0, 0.05, 0, 0.4);
+	FLinearColor ColumnsLabelsColor = FLinearColor::Green;
+
+	FLinearColor RowsCellColor	 = FLinearColor(0, 0.05, 0, 0.4);
+	FLinearColor RowsLabelsColor = FLinearColor::Green;
 	
 	float BorderThickness;
+	float CellLinesThickness;
 	float Padding;
-	float InSizeMultiplier;
-	float FontSize;
+	float SizeMultiplier;
 	
 private:
 	FVector2D CalculatedTableSize;
@@ -534,8 +579,8 @@ void USoundClassMixerSubsystem::OnDrawDebug(UCanvas* Canvas, APlayerController* 
 	for (const USoundClass* Key : Keys)
 	{
 		const FSoundClassSubSysProperties* Props = SoundClassMap.Find(Key);
-		Table.AddElement("Current Volume", Key->GetName(), FString::Printf(TEXT("C %.4f"), Props->Fader.GetVolume()));
-		Table.AddElement("Target Volume", Key->GetName(), FString::Printf(TEXT("T %.4f"), Props->Fader.GetTargetVolume()));
+		Table.AddElement("Current Volume", Key->GetName(), FString::Printf(TEXT("%.4f"), Props->Fader.GetVolume()));
+		Table.AddElement("Target Volume", Key->GetName(), FString::Printf(TEXT("%.4f"), Props->Fader.GetTargetVolume()));
 	}
 	
 	Canvas->DrawItem(Table);
