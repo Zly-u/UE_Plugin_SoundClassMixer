@@ -293,12 +293,12 @@ public:
 		: FCanvasItem(InPosition),
 		BorderThickness(1.0f),
 		CellLinesThickness(1.0f),
-		Padding(5.0), SizeMultiplier(1.0)
+		Padding(0.0), SizeMultiplier(1.0)
 	{}
 
 	virtual void Draw(FCanvas* InCanvas) override {
 		SetupTableCorners();
-
+		
 		// Elements BG
 		FCanvasTileItem Bg(
 			Position + FVector2D(MaxRowLabelWidth, MaxColumnLabelHeight),
@@ -328,6 +328,21 @@ public:
 		
 		FBatchedElements* BatchedElements = InCanvas->GetBatchedElements(FCanvas::ET_Line);
 		const FHitProxyId HitProxyId = InCanvas->GetHitProxyId();
+		
+		// Draw Row/Column Separator.
+		BatchedElements->AddLine(
+			FVector(
+				Position.X,
+				Position.Y,
+				0.f
+			),
+			FVector(
+				Position.X + MaxRowLabelWidth,
+				Position.Y + MaxColumnLabelHeight,
+				0.0f
+			),
+			WindowBgColor, HitProxyId, CellLinesThickness
+		);
 		
 		// Draw each Column line.
 		int32 PrevColumnPos = Position.X + MaxRowLabelWidth; // Skip the first section of Row labels.
@@ -389,7 +404,7 @@ public:
 			for (int32 ColumnLabelIndex = 0; ColumnLabelIndex < TableColumnLabels.Num(); ColumnLabelIndex++)
 			{
 				InCanvas->DrawShadowedString(
-					PrevColumnLabelPos, Position.Y,
+					Padding + PrevColumnLabelPos, Padding + Position.Y,
 					*TableColumnLabels[ColumnLabelIndex],
 					RenderFont,
 					ColumnsLabelsColor
@@ -405,7 +420,7 @@ public:
 			for (int32 RowLabelIndex = 0; RowLabelIndex < TableRowLabels.Num(); RowLabelIndex++)
 			{
 				InCanvas->DrawShadowedString(
-					Position.X, PrevRowLabelPos,
+					Padding + Position.X, Padding + PrevRowLabelPos,
 					*TableRowLabels[RowLabelIndex],
 					RenderFont,
 					RowsLabelsColor
@@ -422,11 +437,12 @@ public:
 				int32 PrevColumnLabelPos = Position.X + MaxRowLabelWidth;
 				for (int32 ColumnLabelIndex = 0; ColumnLabelIndex < TableColumnLabels.Num(); ColumnLabelIndex++)
 				{
+					FTextData& TextData = TableElements[RowLabelIndex][ColumnLabelIndex];
 					InCanvas->DrawShadowedString(
-						PrevColumnLabelPos, PrevRowLabelPos,
-						*TableElements[RowLabelIndex][ColumnLabelIndex],
+						Padding + PrevColumnLabelPos, Padding + PrevRowLabelPos,
+						*TextData.Text,
 						RenderFont,
-						RowsLabelsColor
+						TextData.Color
 					);
 					
 					PrevColumnLabelPos += TableColumnWidth[ColumnLabelIndex];
@@ -442,12 +458,17 @@ public:
 
 	void AddElement(const FString& ColumnName, const FString& RowName, const FString& Value)
 	{
+		AddElement(ColumnName, RowName, Value, FLinearColor::Green);
+	}
+	
+	void AddElement(const FString& ColumnName, const FString& RowName, const FString& Value, const FLinearColor& TextColor)
+	{
 		const UFont* RenderFont = GEngine->GetMediumFont();
 
 		MaxColumnLabelHeight = FMath::Max(MaxColumnLabelHeight, RenderFont->GetStringHeightSize(*ColumnName)); 
 		MaxRowLabelWidth = FMath::Max(MaxRowLabelWidth, RenderFont->GetStringSize(*RowName));
 		
-		const int32 ColumnWidth = FMath::Max(
+		const int32 ColumnWidth = Padding * 2.f + FMath::Max(
 			FMath::Max(
 				RenderFont->GetStringSize(*ColumnName),
 				RenderFont->GetStringSize(*RowName)
@@ -455,7 +476,7 @@ public:
 			RenderFont->GetStringSize(*Value)
 		);
 
-		const int32 RowHeight = FMath::Max(
+		const int32 RowHeight = Padding * 2.f + FMath::Max(
 			FMath::Max(
 				RenderFont->GetStringHeightSize(*ColumnName),
 				RenderFont->GetStringHeightSize(*RowName)
@@ -483,7 +504,10 @@ public:
 			Row.SetNumZeroed(X_Index + 1);
 		}
 		
-		TableElements[Y_Index][X_Index] = Value;
+		TableElements[Y_Index][X_Index] = {
+			Value,
+			TextColor
+		};
 	}
 
 public:
@@ -503,10 +527,44 @@ public:
 	{
 		SizeMultiplier = NewSizeMultiplier;
 	}
+
+	void SetWindowBgColor(const FLinearColor& NewWindowBgColor)
+	{
+		WindowBgColor = NewWindowBgColor;
+	}
+	void SetBorderColor(const FLinearColor& NewBorderColor)
+	{
+		BorderColor = NewBorderColor;
+	}
+	void SetCellsLinesColor(const FLinearColor& NewCellsLinesColor)
+	{
+		CellsLinesColor = NewCellsLinesColor;
+	}
 	
+	void SetColumnsCellColor(const FLinearColor& NewColumnsCellColor)
+	{
+		ColumnsCellColor = NewColumnsCellColor;
+	}
+	void SetColumnsLabelsColor(const FLinearColor& NewColumnsLabelsColor)
+	{
+		ColumnsLabelsColor = NewColumnsLabelsColor;
+	}
+
+	void SetRowsCellColor(const FLinearColor& NewRowsCellColor)
+	{
+		RowsCellColor = NewRowsCellColor;
+	}
+	void SetRowsLabelsColor(const FLinearColor& NewRowsLabelsColor)
+	{
+		RowsLabelsColor = NewRowsLabelsColor;
+	}
+
 private:
 	void SetupTableCorners()
 	{
+		MaxRowLabelWidth += Padding * 2.f;
+		MaxColumnLabelHeight += Padding * 2.f;
+		
 		CalculatedTableSize = FVector2D(
 			MaxRowLabelWidth,
 			MaxColumnLabelHeight
@@ -550,6 +608,12 @@ public:
 	float SizeMultiplier;
 	
 private:
+	struct FTextData
+	{
+		FString Text;
+		FLinearColor Color;
+	};
+	
 	FVector2D CalculatedTableSize;
 	TArray<FVector> TableCorners;
 	
@@ -559,7 +623,7 @@ private:
 	TArray<FString> TableRowLabels;
 	TArray<int32> TableRowHeight;
 	
-	TArray<TArray<FString>> TableElements;
+	TArray<TArray<FTextData>> TableElements;
 
 	int32 MaxColumnLabelHeight = 0;
 	int32 MaxRowLabelWidth = 0;
@@ -576,11 +640,13 @@ void USoundClassMixerSubsystem::OnDrawDebug(UCanvas* Canvas, APlayerController* 
 
 	const FVector2D Origin(50, 50);
 	FCanvasTableItem Table(Origin);
+	Table.SetBorderThickness(2.f);
+	Table.SetPadding(3.f);
 	for (const USoundClass* Key : Keys)
 	{
 		const FSoundClassSubSysProperties* Props = SoundClassMap.Find(Key);
-		Table.AddElement("Current Volume", Key->GetName(), FString::Printf(TEXT("%.4f"), Props->Fader.GetVolume()));
-		Table.AddElement("Target Volume", Key->GetName(), FString::Printf(TEXT("%.4f"), Props->Fader.GetTargetVolume()));
+		Table.AddElement("Current Volume", Key->GetName(), FString::Printf(TEXT("%.4f"), Props->Fader.GetVolume()), FLinearColor::White);
+		Table.AddElement("Target Volume", Key->GetName(), FString::Printf(TEXT("%.4f"), Props->Fader.GetTargetVolume()), FLinearColor::White);
 	}
 	
 	Canvas->DrawItem(Table);
