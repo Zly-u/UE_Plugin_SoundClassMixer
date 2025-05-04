@@ -12,14 +12,12 @@ public class SoundClassMixer : ModuleRules
 		
 		PublicIncludePaths.AddRange(
 			new string[] {
-				// ... add public include paths required here ...
 			}
 		);
 				
 		
 		PrivateIncludePaths.AddRange(
 			new string[] {
-				// ... add other private include paths required here ...
 			}
 		);
 			
@@ -31,18 +29,19 @@ public class SoundClassMixer : ModuleRules
 				"Engine",
 				"SignalProcessing",
 				"DeveloperSettings"
-				// ... add other public dependencies that you statically link with here ...
 			}
 		);
-			
 		
 		PrivateDependencyModuleNames.AddRange(
 			new string[]
 			{
-				// "UnrealEd",
 				"CoreUObject",
-				// ... add private dependencies that you statically link with here ...	
 			}
 		);
+		
+		if (Target.Type == TargetType.Editor)
+		{
+			PrivateDependencyModuleNames.Add("UnrealEd");
+		}
 	}
 }

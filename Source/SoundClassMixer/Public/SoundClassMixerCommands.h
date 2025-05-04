@@ -18,7 +18,9 @@ public:
 
 	static void ToggleDebugDraw_SoundSubmix();
 	static void OnDrawDebug_SoundSubmix(UCanvas* Canvas, APlayerController* PC);
-	static bool bDrawDebug_SoundSubmix;	
+	static bool bDrawDebug_SoundSubmix;
+
+	static void FixupDebug(bool bIsSimulating);
 	
 private:
 	static USoundClassMixerSubsystem* SoundClassMixerSubsystem;

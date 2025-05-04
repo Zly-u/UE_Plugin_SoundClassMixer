@@ -2,6 +2,7 @@
 
 #include "CanvasItem.h"
 #include "CanvasTableItem.h"
+#include "Editor.h"
 #include "SoundClassMixerSubsystem.h"
 #include "Components/AudioComponent.h"
 #include "Debug/DebugDrawService.h"
@@ -30,6 +31,12 @@ void FSoundClassMixerCommands::RegisterCommands(USoundClassMixerSubsystem* InSou
 {
 	SoundClassMixerSubsystem = InSoundClassMixerSubsystem;
 
+	//------------------------------------------------------------------------------------
+
+#if WITH_EDITOR
+	FEditorDelegates::PostPIEStarted.AddStatic(&FSoundClassMixerCommands::FixupDebug);
+#endif
+	
 	//------------------------------------------------------------------------------------
 	
 	Command_SoundClass_ToggleDebug = MakeShareable(new FAutoConsoleCommand(
@@ -215,5 +222,20 @@ void FSoundClassMixerCommands::OnDrawDebug_SoundSubmix(UCanvas* Canvas, APlayerC
 	
 	Canvas->DrawItem(Table);
 }
+
+// =========================================================================================================
+
+void FSoundClassMixerCommands::FixupDebug(bool bIsSimulating)
+{
+	bDrawDebug_SoundClass = !bDrawDebug_SoundClass;
+	bDrawDebug_SoundSubmix = !bDrawDebug_SoundSubmix;
+
+	UDebugDrawService::Unregister(DebugDrawDelegateHandle_SoundClass);
+	UDebugDrawService::Unregister(DebugDrawDelegateHandle_SoundSubmix);
+	
+	ToggleDebugDraw_SoundSubmix();
+	ToggleDebugDraw_SoundClass();
+}
+
 
 #undef LOCTEXT_NAMESPACE
