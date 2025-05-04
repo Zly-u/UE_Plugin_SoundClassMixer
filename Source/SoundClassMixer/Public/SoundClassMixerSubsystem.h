@@ -1,7 +1,6 @@
 ﻿#pragma once
 
 #include "Tickable.h"
-#include "Debug/DebugDrawService.h"
 #include "DSP/VolumeFader.h"
 #include "Subsystems/GameInstanceSubsystem.h"
 
@@ -18,7 +17,7 @@ DECLARE_LOG_CATEGORY_CLASS(LogSoundClassMixerSubsystem, Display, All);
 
 
 USTRUCT()
-struct FSoundClassSubSysProperties
+struct FSoundSubSysProperties
 {
 	GENERATED_BODY()
 	
@@ -38,6 +37,7 @@ class SOUNDCLASSMIXER_API USoundClassMixerSubsystem : public UGameInstanceSubsys
 	GENERATED_BODY()
 	friend FSoundClassMixerCommands;
 	friend USoundClassMixerBlueprintFunctionLibrary;
+
 	
 public:
 	// USubsystem
@@ -55,22 +55,32 @@ public:
 
 	bool IsInitialized() const { return bInitialized; }
 
+	
 private:
 	void GatherSoundClasses();
-	void AdjustVolumeInternal(const USoundClass* SoundClassAsset, float AdjustVolumeDuration, float AdjustVolumeLevel, bool bInIsFadeOut, const EAudioFaderCurve FadeCurve);
+	
+	void AdjustSoundClassVolumeInternal(
+		const USoundClass*     SoundClassAsset, float AdjustVolumeDuration, float AdjustVolumeLevel, bool bInIsFadeOut,
+		const EAudioFaderCurve FadeCurve
+	);
+	USoundClass*  FindSoundClassByName(const FString& SoundClassName);
+	
+	void AdjustSoundSubmixVolumeInternal(
+		const USoundSubmix* SoundSubmixAsset, float AdjustVolumeDuration, float AdjustVolumeLevel, bool bInIsFadeOut,
+		EAudioFaderCurve    FadeCurve
+	);
+	USoundSubmix* FindSoundSubmixByName(const FString& SoundSubmixName);
+	
 	void UpdateAudioClasses();
 
-	USoundClass* FindSoundClassByName(const FString& SoundClassName);
-
-#if WITH_EDITOR
-private:
-	void OnSoundClassAssetAdded(const FAssetData& AssetData);
-	void OnSoundClassAssetRemoved(const FAssetData& AssetData);
-#endif
-
+	
 public:
 	UPROPERTY()
-		TMap<USoundClass*, FSoundClassSubSysProperties> SoundClassMap;
+		TMap<USoundClass*, FSoundSubSysProperties> SoundClassMap;
+	
+	UPROPERTY()
+		TMap<USoundSubmix*, FSoundSubSysProperties> SoundSubmixMap;
+
 	
 private:
 	bool bInitialized = false;

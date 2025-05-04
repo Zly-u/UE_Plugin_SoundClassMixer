@@ -1,8 +1,10 @@
 ﻿#include "SoundClassMixerBlueprintFunctionLibrary.h"
 
 #include "SoundClassMixerSubsystem.h"
+#include "Sound/SoundMix.h"
 #include "Components/AudioComponent.h"
 #include "Engine/Engine.h"
+#include "Sound/SoundSubmix.h"
 
 void USoundClassMixerBlueprintFunctionLibrary::SoundClassFadeTo(
 	const UObject* WorldContextObject,
@@ -26,10 +28,10 @@ void USoundClassMixerBlueprintFunctionLibrary::SoundClassFadeTo(
 	USoundClassMixerSubsystem* SoundClassMixerSubsystem = GI->GetSubsystem<USoundClassMixerSubsystem>();
 	checkf(SoundClassMixerSubsystem, TEXT("SoundClassMixerSubsystem is invalid."))
 
-	const FSoundClassSubSysProperties* FoundSoundClassProps = SoundClassMixerSubsystem->SoundClassMap.Find(TargetClass);
+	const FSoundSubSysProperties* FoundSoundClassProps = SoundClassMixerSubsystem->SoundClassMap.Find(TargetClass);
 	checkf(FoundSoundClassProps, TEXT("SoundClass Properties are not found."))
 	
-	SoundClassMixerSubsystem->AdjustVolumeInternal(
+	SoundClassMixerSubsystem->AdjustSoundClassVolumeInternal(
 		TargetClass,
 		FadeDuration, FadeVolumeLevel,
 		FoundSoundClassProps->Fader.GetVolume() > FadeVolumeLevel,
@@ -56,6 +58,65 @@ float USoundClassMixerBlueprintFunctionLibrary::GetSoundClassVolume(USoundClass*
 	
 	return TargetClass->Properties.Volume;
 }
+
+//==================================
+
+void USoundClassMixerBlueprintFunctionLibrary::SoundSubmixFadeTo(
+	const UObject* WorldContextObject,
+	USoundSubmix* TargetClass,
+	const float FadeDuration, const float FadeVolumeLevel,
+	const EAudioFaderCurve FadeCurve
+)
+{
+	if (!TargetClass)
+	{
+		UE_LOG(LogSoundClassMixer, Error, TEXT("Could not find Sound Submix"));
+		return;
+	}
+
+	const UWorld* World = GEngine->GetWorldFromContextObject(WorldContextObject, EGetWorldErrorMode::ReturnNull);
+	checkf(World, TEXT("World is invalid."))
+
+	const UGameInstance* GI = World->GetGameInstance();
+	checkf(GI, TEXT("GI is invalid."))
+	
+	USoundClassMixerSubsystem* SoundClassMixerSubsystem = GI->GetSubsystem<USoundClassMixerSubsystem>();
+	checkf(SoundClassMixerSubsystem, TEXT("SoundClassMixerSubsystem is invalid."))
+
+	const FSoundSubSysProperties* FoundSoundClassProps = SoundClassMixerSubsystem->SoundSubmixMap.Find(TargetClass);
+	checkf(FoundSoundClassProps, TEXT("SoundClass Properties are not found."))
+	
+	SoundClassMixerSubsystem->AdjustSoundSubmixVolumeInternal(
+		TargetClass,
+		FadeDuration, FadeVolumeLevel,
+		FoundSoundClassProps->Fader.GetVolume() > FadeVolumeLevel,
+		FadeCurve
+	);
+	
+	TargetClass->OutputVolume;
+}
+
+void USoundClassMixerBlueprintFunctionLibrary::SetSoundSubmixVolume(USoundSubmix* TargetClass, float NewVolume)
+{
+	if (!TargetClass)
+	{
+		return;
+	}
+	
+	TargetClass->OutputVolume = NewVolume;
+}
+
+float USoundClassMixerBlueprintFunctionLibrary::GetSoundSubmixVolume(USoundSubmix* TargetClass)
+{
+	if (!TargetClass)
+	{
+		return -1.f;
+	}
+	
+	return TargetClass->OutputVolume;
+}
+
+//==================================
 
 float USoundClassMixerBlueprintFunctionLibrary::ConvertToLinear(float Value)
 {

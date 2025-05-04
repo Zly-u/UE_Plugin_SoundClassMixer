@@ -4,33 +4,43 @@
 #include "CanvasTableItem.h"
 #include "SoundClassMixerSubsystem.h"
 #include "Components/AudioComponent.h"
+#include "Debug/DebugDrawService.h"
 #include "Engine/Canvas.h"
+#include "Sound/SoundSubmix.h"
+
 
 #define LOCTEXT_NAMESPACE "SoundClassMixerModule"
 
+
 USoundClassMixerSubsystem* FSoundClassMixerCommands::SoundClassMixerSubsystem = nullptr;
-bool FSoundClassMixerCommands::bDrawDebug = false;
 
-TSharedPtr<FAutoConsoleCommand> FSoundClassMixerCommands::Command_FadeTo;
+FDelegateHandle FSoundClassMixerCommands::DebugDrawDelegateHandle_SoundClass;
+FDelegateHandle FSoundClassMixerCommands::DebugDrawDelegateHandle_SoundSubmix;
 
-FDelegateHandle FSoundClassMixerCommands::DebugDrawDelegateHandle;
-TSharedPtr<FAutoConsoleCommand> FSoundClassMixerCommands::Command_ToggleDebug;
+bool FSoundClassMixerCommands::bDrawDebug_SoundClass = false;
+TSharedPtr<FAutoConsoleCommand> FSoundClassMixerCommands::Command_SoundClass_ToggleDebug;
+TSharedPtr<FAutoConsoleCommand> FSoundClassMixerCommands::Command_SoundSubmix_ToggleDebug;
 
+bool FSoundClassMixerCommands::bDrawDebug_SoundSubmix = false;
+TSharedPtr<FAutoConsoleCommand> FSoundClassMixerCommands::Command_SoundClass_FadeTo;
+TSharedPtr<FAutoConsoleCommand> FSoundClassMixerCommands::Command_SoundSubmix_FadeTo;
 
 
 void FSoundClassMixerCommands::RegisterCommands(USoundClassMixerSubsystem* InSoundClassMixerSubsystem)
 {
 	SoundClassMixerSubsystem = InSoundClassMixerSubsystem;
 
-	Command_ToggleDebug = MakeShareable(new FAutoConsoleCommand(
-		TEXT("SoundClassMixer.ToggleDebugDraw"),
-		TEXT("Toggles drawing debug info from SoundClassMixerSubsystem."),
-		FConsoleCommandDelegate::CreateStatic(&FSoundClassMixerCommands::ToggleDebugDraw)
+	//------------------------------------------------------------------------------------
+	
+	Command_SoundClass_ToggleDebug = MakeShareable(new FAutoConsoleCommand(
+		TEXT("SoundClassMixer.SoundClass.ToggleDebugDraw"),
+		TEXT("Toggles drawing debug info from SoundClassMixerSubsystem for SoundClass."),
+		FConsoleCommandDelegate::CreateStatic(&FSoundClassMixerCommands::ToggleDebugDraw_SoundClass)
 	));
 	
-	Command_FadeTo = MakeShareable(new FAutoConsoleCommand(
-		TEXT("SoundClassMixer.FadeTo"),
-		TEXT("Smoothly adjusts Volume to the target Volume."),
+	Command_SoundClass_FadeTo = MakeShareable(new FAutoConsoleCommand(
+		TEXT("SoundClassMixer.SoundClass.FadeTo"),
+		TEXT("Smoothly adjusts Volume to the target Volume of a SoundClass."),
 		FConsoleCommandWithArgsDelegate::CreateLambda(
 			[&](const TArray<FString>& Args)
 			{
@@ -52,10 +62,56 @@ void FSoundClassMixerCommands::RegisterCommands(USoundClassMixerSubsystem* InSou
 					UE_LOG(LogTemp, Error, TEXT("Could not find Sound Class with name: %s"), *SoundClassName);
 					return;
 				}
-				const FSoundClassSubSysProperties* FoundSoundClassProps = SoundClassMixerSubsystem->SoundClassMap.Find(FoundSoundClass);
+				const FSoundSubSysProperties* FoundSoundClassProps = SoundClassMixerSubsystem->SoundClassMap.Find(FoundSoundClass);
 
-				SoundClassMixerSubsystem->AdjustVolumeInternal(
+				SoundClassMixerSubsystem->AdjustSoundClassVolumeInternal(
 					FoundSoundClass,
+					AdjustVolumeDuration, AdjustVolumeLevel,
+					FoundSoundClassProps->Fader.GetVolume() > AdjustVolumeLevel,
+					EAudioFaderCurve::Linear 
+				);
+			}
+		),
+		ECVF_Default
+	));
+
+	//------------------------------------------------------------------------------------
+
+	Command_SoundSubmix_ToggleDebug = MakeShareable(new FAutoConsoleCommand(
+		TEXT("SoundClassMixer.SoundSubmix.ToggleDebugDraw"),
+		TEXT("Toggles drawing debug info from SoundClassMixerSubsystem for SoundSubmixes."),
+		FConsoleCommandDelegate::CreateStatic(&FSoundClassMixerCommands::ToggleDebugDraw_SoundSubmix)
+	));
+	
+	Command_SoundSubmix_FadeTo = MakeShareable(new FAutoConsoleCommand(
+		TEXT("SoundClassMixer.SoundSubmix.FadeTo"),
+		TEXT("Smoothly adjusts Volume to the target Volume of a SoundSubmix."),
+		FConsoleCommandWithArgsDelegate::CreateLambda(
+			[&](const TArray<FString>& Args)
+			{
+				if (Args.Num() < 3)
+				{
+					UE_LOG(LogTemp, Display, TEXT("Not enough of args passed, %d/3"), Args.Num());
+					return;
+				}
+				
+				const FString& SoundSubmixName = Args[0];
+				const float AdjustVolumeLevel = FCString::Atof(*Args[1]);
+				const float AdjustVolumeDuration = FCString::Atof(*Args[2]);
+				
+				UE_LOG(LogTemp, Display, TEXT("Test: %s, %f, %f"), *SoundSubmixName, AdjustVolumeLevel, AdjustVolumeDuration);
+	
+				const USoundSubmix* FoundSoundSubmix = SoundClassMixerSubsystem->FindSoundSubmixByName(SoundSubmixName);
+				if (!FoundSoundSubmix)
+				{
+					UE_LOG(LogTemp, Error, TEXT("Could not find Sound Class with name: %s"), *SoundSubmixName);
+					return;
+				}
+				
+				const FSoundSubSysProperties* FoundSoundClassProps = SoundClassMixerSubsystem->SoundSubmixMap.Find(FoundSoundSubmix);
+	
+				SoundClassMixerSubsystem->AdjustSoundSubmixVolumeInternal(
+					FoundSoundSubmix,
 					AdjustVolumeDuration, AdjustVolumeLevel,
 					FoundSoundClassProps->Fader.GetVolume() > AdjustVolumeLevel,
 					EAudioFaderCurve::Linear 
@@ -68,29 +124,35 @@ void FSoundClassMixerCommands::RegisterCommands(USoundClassMixerSubsystem* InSou
 
 void FSoundClassMixerCommands::UnregisterCommands()
 {
-	UDebugDrawService::Unregister(DebugDrawDelegateHandle);
+	UDebugDrawService::Unregister(DebugDrawDelegateHandle_SoundClass);
+	UDebugDrawService::Unregister(DebugDrawDelegateHandle_SoundSubmix);
 	
-	Command_FadeTo.Reset();
-	Command_ToggleDebug.Reset();
+	Command_SoundClass_FadeTo.Reset();
+	Command_SoundClass_ToggleDebug.Reset();
+	
+	Command_SoundSubmix_FadeTo.Reset();
+	Command_SoundSubmix_ToggleDebug.Reset();
 }
 
-void FSoundClassMixerCommands::ToggleDebugDraw()
+// =========================================================================================================
+
+void FSoundClassMixerCommands::ToggleDebugDraw_SoundClass()
 {
-	bDrawDebug = !bDrawDebug;
-	if (bDrawDebug)
+	bDrawDebug_SoundClass = !bDrawDebug_SoundClass;
+	if (bDrawDebug_SoundClass)
 	{
-		DebugDrawDelegateHandle = UDebugDrawService::Register(
+		DebugDrawDelegateHandle_SoundClass = UDebugDrawService::Register(
 			TEXT("Game"),
-			FDebugDrawDelegate::CreateStatic(&FSoundClassMixerCommands::OnDrawDebug)
+			FDebugDrawDelegate::CreateStatic(&FSoundClassMixerCommands::OnDrawDebug_SoundClass)
 		);
 	}
 	else
 	{
-		UDebugDrawService::Unregister(DebugDrawDelegateHandle);
+		UDebugDrawService::Unregister(DebugDrawDelegateHandle_SoundClass);
 	}
 }
 
-void FSoundClassMixerCommands::OnDrawDebug(UCanvas* Canvas, APlayerController* PC)
+void FSoundClassMixerCommands::OnDrawDebug_SoundClass(UCanvas* Canvas, APlayerController* PC)
 {
 	TArray<USoundClass*> Keys;
 	SoundClassMixerSubsystem->SoundClassMap.GenerateKeyArray(Keys);
@@ -105,7 +167,48 @@ void FSoundClassMixerCommands::OnDrawDebug(UCanvas* Canvas, APlayerController* P
 	Table.SetPadding(3.f);
 	for (const USoundClass* Key : Keys)
 	{
-		const FSoundClassSubSysProperties* Props = SoundClassMixerSubsystem->SoundClassMap.Find(Key);
+		const FSoundSubSysProperties* Props = SoundClassMixerSubsystem->SoundClassMap.Find(Key);
+		Table.AddElement("Current Volume", Key->GetName(), FString::Printf(TEXT("%.4f"), Props->Fader.GetVolume()), FLinearColor::White);
+		Table.AddElement("Target Volume", Key->GetName(), FString::Printf(TEXT("%.4f"), Props->Fader.GetTargetVolume()), FLinearColor::White);
+	}
+	
+	Canvas->DrawItem(Table);
+}
+
+// =========================================================================================================
+
+void FSoundClassMixerCommands::ToggleDebugDraw_SoundSubmix()
+{
+	bDrawDebug_SoundSubmix = !bDrawDebug_SoundSubmix;
+	if (bDrawDebug_SoundSubmix)
+	{
+		DebugDrawDelegateHandle_SoundSubmix = UDebugDrawService::Register(
+			TEXT("Game"),
+			FDebugDrawDelegate::CreateStatic(&FSoundClassMixerCommands::OnDrawDebug_SoundSubmix)
+		);
+	}
+	else
+	{
+		UDebugDrawService::Unregister(DebugDrawDelegateHandle_SoundSubmix);
+	}
+}
+
+void FSoundClassMixerCommands::OnDrawDebug_SoundSubmix(UCanvas* Canvas, APlayerController* PC)
+{
+	TArray<USoundSubmix*> Keys;
+	SoundClassMixerSubsystem->SoundSubmixMap.GenerateKeyArray(Keys);
+	Keys.Sort([](const USoundSubmix& A, const USoundSubmix& B)
+	{
+		return A.GetName() < B.GetName();
+	});
+
+	const FVector2D Origin(50, 50);
+	FCanvasTableItem Table(Origin);
+	Table.SetBorderThickness(2.f);
+	Table.SetPadding(3.f);
+	for (const USoundSubmix* Key : Keys)
+	{
+		const FSoundSubSysProperties* Props = SoundClassMixerSubsystem->SoundSubmixMap.Find(Key);
 		Table.AddElement("Current Volume", Key->GetName(), FString::Printf(TEXT("%.4f"), Props->Fader.GetVolume()), FLinearColor::White);
 		Table.AddElement("Target Volume", Key->GetName(), FString::Printf(TEXT("%.4f"), Props->Fader.GetTargetVolume()), FLinearColor::White);
 	}
