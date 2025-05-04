@@ -9,6 +9,14 @@ enum class EAudioFaderCurve : uint8;
 
 DECLARE_LOG_CATEGORY_CLASS(LogSoundClassMixer, Display, All)
 
+UENUM(BlueprintType)
+enum class EAudioFadeDirection : uint8
+{
+	In,
+	Out
+};
+
+
 /**
  * Useful BP functions.
  */
@@ -22,7 +30,7 @@ public:
 		static void SoundClassFadeTo(
 			const UObject* WorldContextObject,
 			USoundClass* TargetClass,
-			const float FadeOutDuration, const float FadeVolumeLevel,
+			const float FadeDuration, const float FadeVolumeLevel,
 			const EAudioFaderCurve FadeCurve
 		);
 

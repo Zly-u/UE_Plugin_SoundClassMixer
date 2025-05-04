@@ -7,7 +7,7 @@
 void USoundClassMixerBlueprintFunctionLibrary::SoundClassFadeTo(
 	const UObject* WorldContextObject,
 	USoundClass* TargetClass,
-	const float FadeOutDuration, const float FadeVolumeLevel,
+	const float FadeDuration, const float FadeVolumeLevel,
 	const EAudioFaderCurve FadeCurve
 )
 {
@@ -31,7 +31,7 @@ void USoundClassMixerBlueprintFunctionLibrary::SoundClassFadeTo(
 	
 	SoundClassMixerSubsystem->AdjustVolumeInternal(
 		TargetClass,
-		FadeOutDuration, FadeVolumeLevel,
+		FadeDuration, FadeVolumeLevel,
 		FoundSoundClassProps->Fader.GetVolume() > FadeVolumeLevel,
 		FadeCurve
 	);
