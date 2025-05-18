@@ -16,15 +16,7 @@ public:
 	
 public:
 	UPROPERTY(Config, EditAnywhere, Category = "Filtering")
-		TArray<FString> ExcludedSoundClassNames = {
-			// Default list of Engine's built in Sound Classes.
-			"Master",
-			"Music",
-			"Normal_Attack",
-			"SFX",
-			"Special_Attack_PSM",
-			"Voice",
-		};
+		TArray<FString> ExcludedSoundClassNames = {};
 	
 	UPROPERTY(Config, EditAnywhere, Category = "Filtering")
 		TArray<TSoftObjectPtr<USoundClass>> ExcludedSoundClasses;
