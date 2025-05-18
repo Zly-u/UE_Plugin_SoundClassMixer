@@ -28,8 +28,10 @@ private:
 	static FDelegateHandle DebugDrawDelegateHandle_SoundClass;
 	static TSharedPtr<FAutoConsoleCommand> Command_SoundClass_ToggleDebug;
 	static TSharedPtr<FAutoConsoleCommand> Command_SoundClass_FadeTo;
+	static TSharedPtr<FAutoConsoleCommand> Command_SoundClass_SetVolume;
 
 	static FDelegateHandle DebugDrawDelegateHandle_SoundSubmix;
 	static TSharedPtr<FAutoConsoleCommand> Command_SoundSubmix_ToggleDebug;
 	static TSharedPtr<FAutoConsoleCommand> Command_SoundSubmix_FadeTo;
+	static TSharedPtr<FAutoConsoleCommand> Command_SoundSubmix_SetVolume;
 };

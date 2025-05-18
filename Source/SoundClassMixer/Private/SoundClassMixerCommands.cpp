@@ -15,16 +15,17 @@
 
 USoundClassMixerSubsystem* FSoundClassMixerCommands::SoundClassMixerSubsystem = nullptr;
 
-FDelegateHandle FSoundClassMixerCommands::DebugDrawDelegateHandle_SoundClass;
-FDelegateHandle FSoundClassMixerCommands::DebugDrawDelegateHandle_SoundSubmix;
-
 bool FSoundClassMixerCommands::bDrawDebug_SoundClass = false;
+FDelegateHandle FSoundClassMixerCommands::DebugDrawDelegateHandle_SoundClass;
 TSharedPtr<FAutoConsoleCommand> FSoundClassMixerCommands::Command_SoundClass_ToggleDebug;
-TSharedPtr<FAutoConsoleCommand> FSoundClassMixerCommands::Command_SoundSubmix_ToggleDebug;
+TSharedPtr<FAutoConsoleCommand> FSoundClassMixerCommands::Command_SoundClass_FadeTo;
+TSharedPtr<FAutoConsoleCommand> FSoundClassMixerCommands::Command_SoundClass_SetVolume;
 
 bool FSoundClassMixerCommands::bDrawDebug_SoundSubmix = false;
-TSharedPtr<FAutoConsoleCommand> FSoundClassMixerCommands::Command_SoundClass_FadeTo;
+FDelegateHandle FSoundClassMixerCommands::DebugDrawDelegateHandle_SoundSubmix;
+TSharedPtr<FAutoConsoleCommand> FSoundClassMixerCommands::Command_SoundSubmix_ToggleDebug;
 TSharedPtr<FAutoConsoleCommand> FSoundClassMixerCommands::Command_SoundSubmix_FadeTo;
+TSharedPtr<FAutoConsoleCommand> FSoundClassMixerCommands::Command_SoundSubmix_SetVolume;
 
 
 void FSoundClassMixerCommands::RegisterCommands(USoundClassMixerSubsystem* InSoundClassMixerSubsystem)
@@ -82,8 +83,46 @@ void FSoundClassMixerCommands::RegisterCommands(USoundClassMixerSubsystem* InSou
 		ECVF_Default
 	));
 
+	Command_SoundClass_SetVolume = MakeShareable(new FAutoConsoleCommand(
+		TEXT("SoundClassMixer.SoundClass.SetVolume"),
+		TEXT("Set sound of a specific SoundClass."),
+		FConsoleCommandWithArgsDelegate::CreateLambda(
+			[&](const TArray<FString>& Args)
+			{
+				if (Args.Num() < 2)
+				{
+					UE_LOG(LogTemp, Display, TEXT("Not enough of args passed, %d/2"), Args.Num());
+					return;
+				}
+
+				const FString& SoundClassName = Args[0];
+				const float NewVolumeLevel = FCString::Atof(*Args[1]);
+				
+				USoundClass* FoundSoundClass = SoundClassMixerSubsystem->FindSoundClassByName(SoundClassName);
+				if (!FoundSoundClass)
+				{
+					UE_LOG(LogTemp, Error, TEXT("Could not find Sound Class with name: %s"), *SoundClassName);
+					return;
+				}
+
+				const FSoundSubSysProperties* FoundSoundClassProps = SoundClassMixerSubsystem->SoundClassMap.Find(FoundSoundClass);
+				checkf(FoundSoundClassProps, TEXT("SoundClass Properties are not found."))
+				
+				SoundClassMixerSubsystem->AdjustSoundClassVolumeInternal(
+					FoundSoundClass,
+					0.0, NewVolumeLevel,
+					FoundSoundClassProps->Fader.GetVolume() > NewVolumeLevel,
+					EAudioFaderCurve::Linear
+				);
+			}
+		),
+		ECVF_Default
+	));
+	//------------------------------------------------------------------------------------
+	//------------------------------------------------------------------------------------
 	//------------------------------------------------------------------------------------
 
+				
 	Command_SoundSubmix_ToggleDebug = MakeShareable(new FAutoConsoleCommand(
 		TEXT("SoundClassMixer.SoundSubmix.ToggleDebugDraw"),
 		TEXT("Toggles drawing debug info from SoundClassMixerSubsystem for SoundSubmixes."),

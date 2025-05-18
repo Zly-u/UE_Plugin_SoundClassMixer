@@ -37,8 +37,8 @@ public:
 			const EAudioFaderCurve FadeCurve
 		);
 
-	UFUNCTION(BlueprintCallable, Category = SoundClassMixerPlugin)
-		static void SetSoundClassVolume(USoundClass* TargetClass, float NewVolume);
+	UFUNCTION(BlueprintCallable, Category = SoundClassMixerPlugin, meta=(WorldContext = "WorldContextObject", CallableWithoutWorldContext))
+		static void SetSoundClassVolume(const UObject* WorldContextObject, USoundClass* TargetClass, const float NewVolume);
 	
 	UFUNCTION(BlueprintCallable, Category = SoundClassMixerPlugin)
 		static float GetSoundClassVolume(USoundClass* TargetClass);
@@ -52,8 +52,8 @@ public:
 			EAudioFaderCurve FadeCurve
 		);
 
-	UFUNCTION(BlueprintCallable, Category = SoundClassMixerPlugin)
-		static void SetSoundSubmixVolume(USoundSubmix* TargetClass, float NewVolume);
+	UFUNCTION(BlueprintCallable, Category = SoundClassMixerPlugin, meta=(WorldContext = "WorldContextObject", CallableWithoutWorldContext))
+		static void SetSoundSubmixVolume(const UObject* WorldContextObject, USoundSubmix* TargetClass, float NewVolume);
 	
 	UFUNCTION(BlueprintCallable, Category = SoundClassMixerPlugin)
 		static float GetSoundSubmixVolume(USoundSubmix* TargetClass);

@@ -63,7 +63,7 @@ private:
 		const USoundClass*     SoundClassAsset, float AdjustVolumeDuration, float AdjustVolumeLevel, bool bInIsFadeOut,
 		const EAudioFaderCurve FadeCurve
 	);
-	USoundClass*  FindSoundClassByName(const FString& SoundClassName);
+	USoundClass* FindSoundClassByName(const FString& SoundClassName);
 	
 	void AdjustSoundSubmixVolumeInternal(
 		const USoundSubmix* SoundSubmixAsset, float AdjustVolumeDuration, float AdjustVolumeLevel, bool bInIsFadeOut,

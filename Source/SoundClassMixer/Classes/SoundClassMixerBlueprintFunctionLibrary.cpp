@@ -1,10 +1,11 @@
 ﻿#include "SoundClassMixerBlueprintFunctionLibrary.h"
 
 #include "SoundClassMixerSubsystem.h"
-#include "Sound/SoundMix.h"
 #include "Components/AudioComponent.h"
 #include "Engine/Engine.h"
 #include "Sound/SoundSubmix.h"
+
+// =====================================================================================================================
 
 void USoundClassMixerBlueprintFunctionLibrary::SoundClassFadeTo(
 	const UObject* WorldContextObject,
@@ -39,14 +40,28 @@ void USoundClassMixerBlueprintFunctionLibrary::SoundClassFadeTo(
 	);
 }
 
-void USoundClassMixerBlueprintFunctionLibrary::SetSoundClassVolume(USoundClass* TargetClass, const float NewVolume)
+void USoundClassMixerBlueprintFunctionLibrary::SetSoundClassVolume(const UObject* WorldContextObject, USoundClass* TargetClass, const float NewVolume)
 {
 	if (!TargetClass)
 	{
 		return;
 	}
-	
-	TargetClass->Properties.Volume = NewVolume;
+
+	const UWorld* World = GEngine->GetWorldFromContextObject(WorldContextObject, EGetWorldErrorMode::ReturnNull);
+	checkf(World, TEXT("World is invalid."))
+
+	const UGameInstance* GI = World->GetGameInstance();
+	checkf(GI, TEXT("GI is invalid."))
+
+	const USoundClassMixerSubsystem* SoundClassMixerSubsystem = GI->GetSubsystem<USoundClassMixerSubsystem>();
+	checkf(SoundClassMixerSubsystem, TEXT("SoundClassMixerSubsystem is invalid."))
+
+	SoundClassFadeTo(
+		WorldContextObject,
+		TargetClass,
+		0.f, NewVolume,
+		EAudioFaderCurve::Linear
+	);
 }
 
 float USoundClassMixerBlueprintFunctionLibrary::GetSoundClassVolume(USoundClass* TargetClass)
@@ -59,7 +74,7 @@ float USoundClassMixerBlueprintFunctionLibrary::GetSoundClassVolume(USoundClass*
 	return TargetClass->Properties.Volume;
 }
 
-//==================================
+// =====================================================================================================================
 
 void USoundClassMixerBlueprintFunctionLibrary::SoundSubmixFadeTo(
 	const UObject* WorldContextObject,
@@ -92,18 +107,21 @@ void USoundClassMixerBlueprintFunctionLibrary::SoundSubmixFadeTo(
 		FoundSoundClassProps->Fader.GetVolume() > FadeVolumeLevel,
 		FadeCurve
 	);
-	
-	TargetClass->OutputVolume;
 }
 
-void USoundClassMixerBlueprintFunctionLibrary::SetSoundSubmixVolume(USoundSubmix* TargetClass, float NewVolume)
+void USoundClassMixerBlueprintFunctionLibrary::SetSoundSubmixVolume(const UObject* WorldContextObject, USoundSubmix* TargetClass, float NewVolume)
 {
 	if (!TargetClass)
 	{
 		return;
 	}
-	
-	TargetClass->OutputVolume = NewVolume;
+
+	SoundSubmixFadeTo(
+		WorldContextObject,
+		TargetClass,
+		0.f, NewVolume,
+		EAudioFaderCurve::Linear
+	);
 }
 
 float USoundClassMixerBlueprintFunctionLibrary::GetSoundSubmixVolume(USoundSubmix* TargetClass)
@@ -116,7 +134,7 @@ float USoundClassMixerBlueprintFunctionLibrary::GetSoundSubmixVolume(USoundSubmi
 	return TargetClass->OutputVolume;
 }
 
-//==================================
+// =====================================================================================================================
 
 float USoundClassMixerBlueprintFunctionLibrary::ConvertToLinear(float Value)
 {
