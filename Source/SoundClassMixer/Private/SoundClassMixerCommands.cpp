@@ -48,7 +48,7 @@ void FSoundClassMixerCommands::RegisterCommands(USoundClassMixerSubsystem* InSou
 	
 	Command_SoundClass_FadeTo = MakeShareable(new FAutoConsoleCommand(
 		TEXT("SoundClassMixer.SoundClass.FadeTo"),
-		TEXT("Smoothly adjusts Volume to the target Volume of a SoundClass."),
+		TEXT("<FString Name> <float TargetVolume> <float Duration> Smoothly adjusts Volume to the target Volume of a SoundClass."),
 		FConsoleCommandWithArgsDelegate::CreateLambda(
 			[&](const TArray<FString>& Args)
 			{
@@ -85,7 +85,7 @@ void FSoundClassMixerCommands::RegisterCommands(USoundClassMixerSubsystem* InSou
 
 	Command_SoundClass_SetVolume = MakeShareable(new FAutoConsoleCommand(
 		TEXT("SoundClassMixer.SoundClass.SetVolume"),
-		TEXT("Set sound of a specific SoundClass."),
+		TEXT("<FString Name> <float Volume> Set sound of a specific SoundClass."),
 		FConsoleCommandWithArgsDelegate::CreateLambda(
 			[&](const TArray<FString>& Args)
 			{
@@ -108,16 +108,16 @@ void FSoundClassMixerCommands::RegisterCommands(USoundClassMixerSubsystem* InSou
 				const FSoundSubSysProperties* FoundSoundClassProps = SoundClassMixerSubsystem->SoundClassMap.Find(FoundSoundClass);
 				checkf(FoundSoundClassProps, TEXT("SoundClass Properties are not found."))
 				
-				SoundClassMixerSubsystem->AdjustSoundClassVolumeInternal(
+				SoundClassMixerSubsystem->SetSoundClassVolumeInternal(
 					FoundSoundClass,
-					0.0, NewVolumeLevel,
-					FoundSoundClassProps->Fader.GetVolume() > NewVolumeLevel,
-					EAudioFaderCurve::Linear
+					NewVolumeLevel
 				);
 			}
 		),
 		ECVF_Default
 	));
+
+	
 	//------------------------------------------------------------------------------------
 	//------------------------------------------------------------------------------------
 	//------------------------------------------------------------------------------------
@@ -128,10 +128,44 @@ void FSoundClassMixerCommands::RegisterCommands(USoundClassMixerSubsystem* InSou
 		TEXT("Toggles drawing debug info from SoundClassMixerSubsystem for SoundSubmixes."),
 		FConsoleCommandDelegate::CreateStatic(&FSoundClassMixerCommands::ToggleDebugDraw_SoundSubmix)
 	));
+
+	Command_SoundSubmix_SetVolume = MakeShareable(new FAutoConsoleCommand(
+			TEXT("SoundClassMixer.SoundSubmix.SetVolume"),
+			TEXT("<FString Name> <float Volume> Set sound of a specific SoundSubmix."),
+			FConsoleCommandWithArgsDelegate::CreateLambda(
+				[&](const TArray<FString>& Args)
+				{
+					if (Args.Num() < 2)
+					{
+						UE_LOG(LogTemp, Display, TEXT("Not enough of args passed, %d/2"), Args.Num());
+						return;
+					}
+
+					const FString& SoundSubmixName = Args[0];
+					const float NewVolumeLevel = FCString::Atof(*Args[1]);
+				
+					USoundSubmix* FoundSubmixClass = SoundClassMixerSubsystem->FindSoundSubmixByName(SoundSubmixName);
+					if (!FoundSubmixClass)
+					{
+						UE_LOG(LogTemp, Error, TEXT("Could not find Sound Submix with name: %s"), *SoundSubmixName);
+						return;
+					}
+
+					const FSoundSubSysProperties* FoundSoundClassProps = SoundClassMixerSubsystem->SoundSubmixMap.Find(FoundSubmixClass);
+					checkf(FoundSoundClassProps, TEXT("SoundSubmix Properties are not found."))
+				
+					SoundClassMixerSubsystem->SetSoundSubmixVolumeInternal(
+						FoundSubmixClass,
+						NewVolumeLevel
+					);
+				}
+			),
+			ECVF_Default
+		));
 	
 	Command_SoundSubmix_FadeTo = MakeShareable(new FAutoConsoleCommand(
 		TEXT("SoundClassMixer.SoundSubmix.FadeTo"),
-		TEXT("Smoothly adjusts Volume to the target Volume of a SoundSubmix."),
+		TEXT("<FString Name> <float TargetVolume> <float Duration> Smoothly adjusts Volume to the target Volume of a SoundSubmix."),
 		FConsoleCommandWithArgsDelegate::CreateLambda(
 			[&](const TArray<FString>& Args)
 			{

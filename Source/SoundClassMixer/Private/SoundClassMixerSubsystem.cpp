@@ -131,6 +131,37 @@ void USoundClassMixerSubsystem::GatherSoundClasses()
 
 // =====================================================================================================================
 
+void USoundClassMixerSubsystem::SetSoundClassVolumeInternal(
+	const USoundClass* SoundClassAsset,
+	float AdjustVolumeLevel
+)
+{
+	if (!SoundClassAsset)
+	{
+		UE_LOG(LogSoundClassMixerSubsystem, Error, TEXT("Passed Sound Class is invalid."))
+		return;
+	}
+
+	AdjustVolumeLevel = FMath::Max(0.0f, AdjustVolumeLevel);
+
+	FSoundSubSysProperties* FoundSoundClassProps = SoundClassMap.Find(SoundClassAsset);
+	check(FoundSoundClassProps);
+
+	FoundSoundClassProps->bIsFading = false;
+
+	DECLARE_CYCLE_STAT(TEXT("USoundClassMixerSubsystem.SoundClass.SetVolume"), STAT_SoundClassAdjustVolume, STATGROUP_AudioThreadCommands);
+	FAudioThread::RunCommandOnAudioThread(
+		[FoundSoundClassProps, AdjustVolumeLevel]
+		{
+			Audio::FVolumeFader& AudioClassFader = FoundSoundClassProps->Fader;
+
+			AudioClassFader.SetVolume(AdjustVolumeLevel);
+		},
+		GET_STATID(STAT_SoundClassAdjustVolume)
+	);
+}
+
+
 void USoundClassMixerSubsystem::AdjustSoundClassVolumeInternal(
 	const USoundClass* SoundClassAsset,
 	float AdjustVolumeDuration, float AdjustVolumeLevel,
@@ -145,8 +176,10 @@ void USoundClassMixerSubsystem::AdjustSoundClassVolumeInternal(
 	
 	AdjustVolumeDuration = FMath::Max(0.0f, AdjustVolumeDuration);
 	AdjustVolumeLevel = FMath::Max(0.0f, AdjustVolumeLevel);
-	if (bInIsFadeOut && FMath::IsNearlyZero(AdjustVolumeDuration) && FMath::IsNearlyZero(AdjustVolumeLevel))
+	
+	if (FMath::IsNearlyZero(AdjustVolumeDuration))
 	{
+		SetSoundClassVolumeInternal(SoundClassAsset, AdjustVolumeLevel);
 		return;
 	}
 
@@ -202,6 +235,36 @@ USoundClass* USoundClassMixerSubsystem::FindSoundClassByName(const FString& Soun
 
 // =====================================================================================================================
 
+void USoundClassMixerSubsystem::SetSoundSubmixVolumeInternal(
+	const USoundSubmix* SoundSubmixAsset,
+	float AdjustVolumeLevel
+)
+{
+	if (!SoundSubmixAsset)
+	{
+		UE_LOG(LogSoundClassMixerSubsystem, Error, TEXT("Passed Sound Submix is invalid."))
+		return;
+	}
+
+	AdjustVolumeLevel = FMath::Max(0.0f, AdjustVolumeLevel);
+
+	FSoundSubSysProperties* FoundSoundSubmixProps = SoundSubmixMap.Find(SoundSubmixAsset);
+	check(FoundSoundSubmixProps);
+
+	FoundSoundSubmixProps->bIsFading = false;
+
+	DECLARE_CYCLE_STAT(TEXT("USoundClassMixerSubsystem.SoundSubmix.SetVolume"), STAT_SoundClassAdjustVolume, STATGROUP_AudioThreadCommands);
+	FAudioThread::RunCommandOnAudioThread(
+		[FoundSoundSubmixProps, AdjustVolumeLevel]
+		{
+			Audio::FVolumeFader& AudioClassFader = FoundSoundSubmixProps->Fader;
+
+			AudioClassFader.SetVolume(AdjustVolumeLevel);
+		},
+		GET_STATID(STAT_SoundClassAdjustVolume)
+	);
+}
+
 void USoundClassMixerSubsystem::AdjustSoundSubmixVolumeInternal(
 	const USoundSubmix* SoundSubmixAsset,
 	float AdjustVolumeDuration, float AdjustVolumeLevel,
@@ -216,8 +279,10 @@ void USoundClassMixerSubsystem::AdjustSoundSubmixVolumeInternal(
 	
 	AdjustVolumeDuration = FMath::Max(0.0f, AdjustVolumeDuration);
 	AdjustVolumeLevel = FMath::Max(0.0f, AdjustVolumeLevel);
-	if (bInIsFadeOut && FMath::IsNearlyZero(AdjustVolumeDuration) && FMath::IsNearlyZero(AdjustVolumeLevel))
+
+	if (FMath::IsNearlyZero(AdjustVolumeDuration))
 	{
+		SetSoundSubmixVolumeInternal(SoundSubmixAsset, AdjustVolumeLevel);
 		return;
 	}
 
@@ -226,7 +291,7 @@ void USoundClassMixerSubsystem::AdjustSoundSubmixVolumeInternal(
 
 	FoundSoundSubmixProps->bIsFading = bInIsFadeOut || FMath::IsNearlyZero(AdjustVolumeLevel);
 
-	DECLARE_CYCLE_STAT(TEXT("USoundClassMixerSubsystem.SoundSubmix.AdjustVolume"), STAT_SoundClassAdjustVolume, STATGROUP_AudioThreadCommands);
+	DECLARE_CYCLE_STAT(TEXT("USoundClassMixerSubsystem.SoundSubmix.AdjustVolume"), STAT_SoundSubmixAdjustVolume, STATGROUP_AudioThreadCommands);
 	FAudioThread::RunCommandOnAudioThread(
 		[FadeCurve, bInIsFadeOut, FoundSoundSubmixProps, AdjustVolumeDuration, AdjustVolumeLevel]
 		{
@@ -254,7 +319,7 @@ void USoundClassMixerSubsystem::AdjustSoundSubmixVolumeInternal(
 
 			AudioClassFader.StartFade(AdjustVolumeLevel, AdjustVolumeDuration, static_cast<Audio::EFaderCurve>(FadeCurve));
 		},
-		GET_STATID(STAT_SoundClassAdjustVolume)
+		GET_STATID(STAT_SoundSubmixAdjustVolume)
 	);
 }
 
@@ -275,17 +340,17 @@ USoundSubmix* USoundClassMixerSubsystem::FindSoundSubmixByName(const FString& So
 
 void USoundClassMixerSubsystem::UpdateAudioClasses()
 {
-	if (!IsInAudioThread())
-	{
-		check(IsInGameThread());
-	
-		FAudioThread::RunCommandOnAudioThread([Mixer = this]
-			{
-				Mixer->UpdateAudioClasses();
-			}
-		);
-		return;
-	}
+	// if (!IsInAudioThread())
+	// {
+	// 	check(IsInGameThread());
+	//
+	// 	FAudioThread::RunCommandOnAudioThread([Mixer = this]
+	// 		{
+	// 			Mixer->UpdateAudioClasses();
+	// 		}
+	// 	);
+	// 	return;
+	// }
 
 	const UWorld* World = GetWorld();
 	if (!World)

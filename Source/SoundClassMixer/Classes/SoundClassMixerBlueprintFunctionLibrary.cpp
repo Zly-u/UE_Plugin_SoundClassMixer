@@ -44,6 +44,7 @@ void USoundClassMixerBlueprintFunctionLibrary::SetSoundClassVolume(const UObject
 {
 	if (!TargetClass)
 	{
+		UE_LOG(LogSoundClassMixer, Error, TEXT("Could not find Sound Class!"));
 		return;
 	}
 
@@ -52,15 +53,12 @@ void USoundClassMixerBlueprintFunctionLibrary::SetSoundClassVolume(const UObject
 
 	const UGameInstance* GI = World->GetGameInstance();
 	checkf(GI, TEXT("GI is invalid."))
-
-	const USoundClassMixerSubsystem* SoundClassMixerSubsystem = GI->GetSubsystem<USoundClassMixerSubsystem>();
+	
+	USoundClassMixerSubsystem* SoundClassMixerSubsystem = GI->GetSubsystem<USoundClassMixerSubsystem>();
 	checkf(SoundClassMixerSubsystem, TEXT("SoundClassMixerSubsystem is invalid."))
 
-	SoundClassFadeTo(
-		WorldContextObject,
-		TargetClass,
-		0.f, NewVolume,
-		EAudioFaderCurve::Linear
+	SoundClassMixerSubsystem->SetSoundClassVolumeInternal(
+		TargetClass, NewVolume
 	);
 }
 
@@ -113,14 +111,21 @@ void USoundClassMixerBlueprintFunctionLibrary::SetSoundSubmixVolume(const UObjec
 {
 	if (!TargetClass)
 	{
+		UE_LOG(LogSoundClassMixer, Error, TEXT("Could not find Sound Submix"));
 		return;
 	}
 
-	SoundSubmixFadeTo(
-		WorldContextObject,
-		TargetClass,
-		0.f, NewVolume,
-		EAudioFaderCurve::Linear
+	const UWorld* World = GEngine->GetWorldFromContextObject(WorldContextObject, EGetWorldErrorMode::ReturnNull);
+	checkf(World, TEXT("World is invalid."))
+
+	const UGameInstance* GI = World->GetGameInstance();
+	checkf(GI, TEXT("GI is invalid."))
+	
+	USoundClassMixerSubsystem* SoundClassMixerSubsystem = GI->GetSubsystem<USoundClassMixerSubsystem>();
+	checkf(SoundClassMixerSubsystem, TEXT("SoundClassMixerSubsystem is invalid."))
+
+	SoundClassMixerSubsystem->SetSoundSubmixVolumeInternal(
+		TargetClass, NewVolume
 	);
 }
 
