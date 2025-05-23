@@ -28,7 +28,7 @@ public class SoundClassMixer : ModuleRules
 				"Core", 
 				"Engine",
 				"SignalProcessing",
-				"DeveloperSettings"
+				"DeveloperSettings",
 			}
 		);
 		

@@ -2,6 +2,7 @@
 	"BuildId": "17155196",
 	"Modules": 
 	{
+		"SCMEditor": "UE4Editor-SCMEditor.dll",
 		"SoundClassMixer": "UE4Editor-SoundClassMixer.dll"
 	}
 }

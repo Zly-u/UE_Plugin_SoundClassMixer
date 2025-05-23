@@ -1,10 +1,8 @@
 ﻿#include "SoundClassMixerSubsystem.h"
 
 #include "ActiveSound.h"
-#include "SoundClassMixerCommands.h"
 #include "SoundClassMixerSettings.h"
 #include "AssetRegistry/AssetRegistryModule.h"
-#include "Engine/Engine.h"
 #include "Sound/SoundSubmix.h"
 
 // =====================================================================================================================
@@ -14,10 +12,6 @@ void USoundClassMixerSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 	check(!bInitialized);
 	
 	Super::Initialize(Collection);
-
-#if WITH_EDITOR
-	FSoundClassMixerCommands::RegisterCommands(this);
-#endif
 	
 	GatherSoundClasses();
 	
@@ -27,10 +21,6 @@ void USoundClassMixerSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 void USoundClassMixerSubsystem::Deinitialize()
 {
 	check(bInitialized);
-
-#if WITH_EDITOR
-	FSoundClassMixerCommands::UnregisterCommands();
-#endif
 	
 	bInitialized = false;
 	
