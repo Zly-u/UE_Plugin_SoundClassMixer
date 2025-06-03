@@ -32,7 +32,14 @@ void USoundClassMixerSubsystem::Deinitialize()
 ETickableTickType USoundClassMixerSubsystem::GetTickableTickType() const
 {
 	// By default (if the child class doesn't override GetTickableTickType), don't let CDOs ever tick: 
-	return IsTemplate() ? ETickableTickType::Never : FTickableGameObject::GetTickableTickType();
+	return IsTemplate()
+		? ETickableTickType::Never
+		: ETickableTickType::Always;
+}
+
+bool USoundClassMixerSubsystem::IsTickableWhenPaused() const
+{
+	return true;
 }
 
 bool USoundClassMixerSubsystem::IsAllowedToTick() const

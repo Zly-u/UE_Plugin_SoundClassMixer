@@ -19,6 +19,11 @@
 			"Name": "SoundClassMixer",
 			"Type": "Runtime",
 			"LoadingPhase": "Default"
+		},
+		{
+			"Name": "SCMEditor",
+			"Type": "Editor",
+			"LoadingPhase": "PostDefault"
 		}
 	]
 }

@@ -48,6 +48,7 @@ public:
 	// FTickableGameObject
 	virtual UWorld* GetTickableGameObjectWorld() const override { return GetWorld(); }
 	virtual ETickableTickType GetTickableTickType() const override;
+	virtual bool IsTickableWhenPaused() const override;
 	virtual bool IsAllowedToTick() const override final;
 	virtual void Tick(float DeltaTime) override;
 	virtual TStatId GetStatId() const override;
