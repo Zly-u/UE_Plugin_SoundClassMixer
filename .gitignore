@@ -1,6 +1,7 @@
 /.vs
 /.idea
 
+Binaries
 Build
 Intermediate
 DerivedDataCahce
@@ -17,6 +18,7 @@ global.json
 .vsconfig
 
 *.exp
+*.dll
 *.pdb
 *.lib
 *.patch_*
