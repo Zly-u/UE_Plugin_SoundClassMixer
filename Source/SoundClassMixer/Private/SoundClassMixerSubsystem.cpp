@@ -144,14 +144,11 @@ void USoundClassMixerSubsystem::SetSoundClassVolumeInternal(
 	FSoundSubSysProperties* FoundSoundClassProps = SoundClassMap.Find(SoundClassAsset);
 	check(FoundSoundClassProps);
 
-	FoundSoundClassProps->bIsFading = false;
-
 	DECLARE_CYCLE_STAT(TEXT("USoundClassMixerSubsystem.SoundClass.SetVolume"), STAT_SoundClassAdjustVolume, STATGROUP_AudioThreadCommands);
 	FAudioThread::RunCommandOnAudioThread(
 		[FoundSoundClassProps, AdjustVolumeLevel]
 		{
-			Audio::FVolumeFader& AudioClassFader = FoundSoundClassProps->Fader;
-
+			FSimpleFader& AudioClassFader = FoundSoundClassProps->Fader;
 			AudioClassFader.SetVolume(AdjustVolumeLevel);
 		},
 		GET_STATID(STAT_SoundClassAdjustVolume)
@@ -183,34 +180,11 @@ void USoundClassMixerSubsystem::AdjustSoundClassVolumeInternal(
 	FSoundSubSysProperties* FoundSoundClassProps = SoundClassMap.Find(SoundClassAsset);
 	check(FoundSoundClassProps);
 
-	FoundSoundClassProps->bIsFading = bInIsFadeOut || FMath::IsNearlyZero(AdjustVolumeLevel);
-
 	DECLARE_CYCLE_STAT(TEXT("USoundClassMixerSubsystem.SoundClass.AdjustVolume"), STAT_SoundClassAdjustVolume, STATGROUP_AudioThreadCommands);
 	FAudioThread::RunCommandOnAudioThread(
 		[FadeCurve, bInIsFadeOut, FoundSoundClassProps, AdjustVolumeDuration, AdjustVolumeLevel]
 		{
-			Audio::FVolumeFader& AudioClassFader = FoundSoundClassProps->Fader;
-
-			const float InitialTargetVolume = AudioClassFader.GetTargetVolume();
-
-			// Ignore fade out request if requested volume is higher than current target.
-			if (bInIsFadeOut && AdjustVolumeLevel >= InitialTargetVolume)
-			{
-				return;
-			}
-
-			const bool ToZeroVolume = FMath::IsNearlyZero(AdjustVolumeLevel);
-			if (bInIsFadeOut || ToZeroVolume)
-			{
-				// If negative, active indefinitely, so always make sure set to minimum positive value for active fade.
-				const float OldActiveDuration = AudioClassFader.GetActiveDuration();
-				const float NewActiveDuration = OldActiveDuration < 0.0f
-					? AdjustVolumeDuration
-					: FMath::Min(OldActiveDuration, AdjustVolumeDuration);
-				
-				AudioClassFader.SetActiveDuration(NewActiveDuration);
-			}
-
+			FSimpleFader& AudioClassFader = FoundSoundClassProps->Fader;
 			AudioClassFader.StartFade(AdjustVolumeLevel, AdjustVolumeDuration, static_cast<Audio::EFaderCurve>(FadeCurve));
 		},
 		GET_STATID(STAT_SoundClassAdjustVolume)
@@ -254,7 +228,7 @@ void USoundClassMixerSubsystem::SetSoundSubmixVolumeInternal(
 	FAudioThread::RunCommandOnAudioThread(
 		[FoundSoundSubmixProps, AdjustVolumeLevel]
 		{
-			Audio::FVolumeFader& AudioClassFader = FoundSoundSubmixProps->Fader;
+			FSimpleFader& AudioClassFader = FoundSoundSubmixProps->Fader;
 
 			AudioClassFader.SetVolume(AdjustVolumeLevel);
 		},
@@ -292,27 +266,7 @@ void USoundClassMixerSubsystem::AdjustSoundSubmixVolumeInternal(
 	FAudioThread::RunCommandOnAudioThread(
 		[FadeCurve, bInIsFadeOut, FoundSoundSubmixProps, AdjustVolumeDuration, AdjustVolumeLevel]
 		{
-			Audio::FVolumeFader& AudioClassFader = FoundSoundSubmixProps->Fader;
-
-			const float InitialTargetVolume = AudioClassFader.GetTargetVolume();
-
-			// Ignore fade out request if requested volume is higher than current target.
-			if (bInIsFadeOut && AdjustVolumeLevel >= InitialTargetVolume)
-			{
-				return;
-			}
-
-			const bool ToZeroVolume = FMath::IsNearlyZero(AdjustVolumeLevel);
-			if (bInIsFadeOut || ToZeroVolume)
-			{
-				// If negative, active indefinitely, so always make sure set to minimum positive value for active fade.
-				const float OldActiveDuration = AudioClassFader.GetActiveDuration();
-				const float NewActiveDuration = OldActiveDuration < 0.0f
-					? AdjustVolumeDuration
-					: FMath::Min(OldActiveDuration, AdjustVolumeDuration);
-				
-				AudioClassFader.SetActiveDuration(NewActiveDuration);
-			}
+			FSimpleFader& AudioClassFader = FoundSoundSubmixProps->Fader;
 
 			AudioClassFader.StartFade(AdjustVolumeLevel, AdjustVolumeDuration, static_cast<Audio::EFaderCurve>(FadeCurve));
 		},
@@ -355,21 +309,21 @@ void USoundClassMixerSubsystem::UpdateAudioClasses()
 		return;
 	}
 	
-	const float DeltaTime = FApp::GetDeltaTime();
-	for (auto It = SoundClassMap.CreateIterator(); It; ++It)
+	const float DeltaTime = GetWorld()->GetDeltaSeconds()
+	for (TPair<USoundClass*, FSoundSubSysProperties>& Pair : SoundClassMap)
 	{
-		USoundClass* SoundClass = It->Key;
-		FSoundSubSysProperties& SoundClassProps = It->Value;
+		USoundClass* SoundClass = Pair.Key;
+		FSoundSubSysProperties& SoundClassProps = Pair.Value;
 
 		// Clamp the delta time to a reasonable max delta time.
 		SoundClassProps.Fader.Update(FMath::Min(DeltaTime, 0.5f));
 		SoundClass->Properties.Volume = SoundClassProps.Fader.GetVolume();
 	}
 	
-	for (auto It = SoundSubmixMap.CreateIterator(); It; ++It)
+	for (TPair<USoundSubmix*, FSoundSubSysProperties>& Pair :  SoundSubmixMap)
 	{
-		USoundSubmix* SoundSubmix = It->Key;
-		FSoundSubSysProperties& SoundSubmixProps = It->Value;
+		USoundSubmix* SoundSubmix = Pair.Key;
+		FSoundSubSysProperties& SoundSubmixProps = Pair.Value;
 
 		// Clamp the delta time to a reasonable max delta time.
 		SoundSubmixProps.Fader.Update(FMath::Min(DeltaTime, 0.5f));

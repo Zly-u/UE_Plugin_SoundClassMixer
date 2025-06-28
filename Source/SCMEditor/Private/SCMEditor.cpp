@@ -1,6 +1,7 @@
 ﻿#include "SCMEditor.h"
 
 #include "Editor.h"
+#include "SoundClassMixerSubsystem.h"
 #include "SoundClassMixerCommands.h"
 
 #define LOCTEXT_NAMESPACE "FSCMEditorModule"
@@ -8,7 +9,6 @@
 void FSCMEditorModule::StartupModule()
 {
 	FEditorDelegates::PostPIEStarted.AddRaw(this, &FSCMEditorModule::HandleBeginPIE);
-	
 }
 
 

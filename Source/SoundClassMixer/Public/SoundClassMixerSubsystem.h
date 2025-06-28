@@ -1,7 +1,7 @@
 ﻿#pragma once
 
+#include "SimpleFader.h"
 #include "Tickable.h"
-#include "DSP/VolumeFader.h"
 #include "Subsystems/GameInstanceSubsystem.h"
 
 #include "SoundClassMixerSubsystem.generated.h"
@@ -24,7 +24,7 @@ struct FSoundSubSysProperties
 	UPROPERTY()
 		bool bIsFading = false;
 	
-	Audio::FVolumeFader Fader;
+	FSimpleFader Fader;
 };
 
 

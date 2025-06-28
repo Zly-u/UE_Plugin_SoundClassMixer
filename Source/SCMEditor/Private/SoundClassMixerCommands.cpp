@@ -1,6 +1,5 @@
 #include "SoundClassMixerCommands.h"
 
-#include "CanvasItem.h"
 #include "CanvasTableItem.h"
 #include "Editor.h"
 #include "SoundClassMixerSubsystem.h"
