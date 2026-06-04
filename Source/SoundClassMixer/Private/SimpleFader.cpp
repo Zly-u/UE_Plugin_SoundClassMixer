@@ -131,6 +131,20 @@ void FSimpleFader::StartFade(const float InVolume, const float InDuration, const
 		return;
 	}
 
+	// When idle, internal alpha can drift from the last applied output volume (e.g. asset defaults).
+	if (!IsFading())
+	{
+		const float CurrentOutput = GetVolume();
+		if (InCurve != Audio::EFaderCurve::Logarithmic)
+		{
+			CurrentVolume = CurrentOutput;
+		}
+		else
+		{
+			CurrentVolume = Audio::ConvertToDecibels(CurrentOutput, KINDA_SMALL_NUMBER);
+		}
+	}
+
 	if (InCurve != Audio::EFaderCurve::Logarithmic)
 	{
 		if (FadeCurve == Audio::EFaderCurve::Logarithmic)
@@ -205,14 +219,17 @@ float FSimpleFader::GetVolumeAfterTime(float InDeltaTime) const
 
 void FSimpleFader::Update(float InDeltaTime)
 {
-	if (!IsFading())
+	// Query fading state before incrementing elapsed time (matches Audio::FVolumeFader).
+	const bool bIsFading = IsFading();
+
+	ElapsedTime += InDeltaTime;
+
+	if (!bIsFading)
 	{
 		return;
 	}
-	
-	ElapsedTime += InDeltaTime;
-	
-	if (ElapsedTime >= FadeDuration)
+
+	if (FadeDuration <= ElapsedTime)
 	{
 		CurrentVolume = TargetVolume;
 		StopFade();
@@ -220,7 +237,6 @@ void FSimpleFader::Update(float InDeltaTime)
 	}
 
 	// Keep stepping towards target and clamp until fade duration has expired.
-	// Choose min/max bound and clamp dt to prevent unwanted spikes in volume
 	float MinValue;
 	float MaxValue;
 	if (CurrentVolume < TargetVolume)
@@ -228,7 +244,7 @@ void FSimpleFader::Update(float InDeltaTime)
 		MinValue = CurrentVolume;
 		MaxValue = TargetVolume;
 	}
-	else 
+	else
 	{
 		MinValue = TargetVolume;
 		MaxValue = CurrentVolume;
@@ -236,4 +252,9 @@ void FSimpleFader::Update(float InDeltaTime)
 
 	CurrentVolume += (TargetVolume - CurrentVolume) * InDeltaTime / (FadeDuration - ElapsedTime);
 	CurrentVolume = FMath::Clamp(CurrentVolume, MinValue, MaxValue);
+
+	if (InDeltaTime > SMALL_NUMBER && FMath::IsNearlyEqual(CurrentVolume, TargetVolume))
+	{
+		StopFade();
+	}
 }

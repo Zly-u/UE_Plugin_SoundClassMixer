@@ -1,6 +1,5 @@
 ﻿#include "SoundClassMixerSubsystem.h"
 
-#include "ActiveSound.h"
 #include "SoundClassMixerSettings.h"
 #include "AssetRegistry/AssetRegistryModule.h"
 #include "Sound/SoundSubmix.h"
@@ -103,7 +102,9 @@ void USoundClassMixerSubsystem::GatherSoundClasses()
 		}
 
 		UE_LOG(LogSoundClassMixerSubsystem, Verbose, TEXT("Added SoundClass: %s"), *SoundClass->GetName());
-		SoundClassMap.Add(SoundClass);
+
+		FSoundSubSysProperties& SoundClassProps = SoundClassMap.Add(SoundClass);
+		SoundClassProps.Fader.SetVolume(SoundClass->Properties.Volume);
 	}
 
 	
@@ -122,7 +123,9 @@ void USoundClassMixerSubsystem::GatherSoundClasses()
 		}
 
 		UE_LOG(LogSoundClassMixerSubsystem, Verbose, TEXT("Added SoundSubmix: %s"), *SoundSubmix->GetName());
-		SoundSubmixMap.Add(SoundSubmix);
+
+		FSoundSubSysProperties& SoundSubmixProps = SoundSubmixMap.Add(SoundSubmix);
+		SoundSubmixProps.Fader.SetVolume(SoundSubmix->OutputVolume);
 	}
 }
 
@@ -144,15 +147,7 @@ void USoundClassMixerSubsystem::SetSoundClassVolumeInternal(
 	FSoundSubSysProperties* FoundSoundClassProps = SoundClassMap.Find(SoundClassAsset);
 	check(FoundSoundClassProps);
 
-	DECLARE_CYCLE_STAT(TEXT("USoundClassMixerSubsystem.SoundClass.SetVolume"), STAT_SoundClassAdjustVolume, STATGROUP_AudioThreadCommands);
-	FAudioThread::RunCommandOnAudioThread(
-		[FoundSoundClassProps, AdjustVolumeLevel]
-		{
-			FSimpleFader& AudioClassFader = FoundSoundClassProps->Fader;
-			AudioClassFader.SetVolume(AdjustVolumeLevel);
-		},
-		GET_STATID(STAT_SoundClassAdjustVolume)
-	);
+	FoundSoundClassProps->Fader.SetVolume(AdjustVolumeLevel);
 }
 
 
@@ -180,14 +175,10 @@ void USoundClassMixerSubsystem::AdjustSoundClassVolumeInternal(
 	FSoundSubSysProperties* FoundSoundClassProps = SoundClassMap.Find(SoundClassAsset);
 	check(FoundSoundClassProps);
 
-	DECLARE_CYCLE_STAT(TEXT("USoundClassMixerSubsystem.SoundClass.AdjustVolume"), STAT_SoundClassAdjustVolume, STATGROUP_AudioThreadCommands);
-	FAudioThread::RunCommandOnAudioThread(
-		[FadeCurve, bInIsFadeOut, FoundSoundClassProps, AdjustVolumeDuration, AdjustVolumeLevel]
-		{
-			FSimpleFader& AudioClassFader = FoundSoundClassProps->Fader;
-			AudioClassFader.StartFade(AdjustVolumeLevel, AdjustVolumeDuration, static_cast<Audio::EFaderCurve>(FadeCurve));
-		},
-		GET_STATID(STAT_SoundClassAdjustVolume)
+	FoundSoundClassProps->Fader.StartFade(
+		AdjustVolumeLevel,
+		AdjustVolumeDuration,
+		static_cast<Audio::EFaderCurve>(FadeCurve)
 	);
 }
 
@@ -223,17 +214,7 @@ void USoundClassMixerSubsystem::SetSoundSubmixVolumeInternal(
 	check(FoundSoundSubmixProps);
 
 	FoundSoundSubmixProps->bIsFading = false;
-
-	DECLARE_CYCLE_STAT(TEXT("USoundClassMixerSubsystem.SoundSubmix.SetVolume"), STAT_SoundClassAdjustVolume, STATGROUP_AudioThreadCommands);
-	FAudioThread::RunCommandOnAudioThread(
-		[FoundSoundSubmixProps, AdjustVolumeLevel]
-		{
-			FSimpleFader& AudioClassFader = FoundSoundSubmixProps->Fader;
-
-			AudioClassFader.SetVolume(AdjustVolumeLevel);
-		},
-		GET_STATID(STAT_SoundClassAdjustVolume)
-	);
+	FoundSoundSubmixProps->Fader.SetVolume(AdjustVolumeLevel);
 }
 
 void USoundClassMixerSubsystem::AdjustSoundSubmixVolumeInternal(
@@ -262,15 +243,10 @@ void USoundClassMixerSubsystem::AdjustSoundSubmixVolumeInternal(
 
 	FoundSoundSubmixProps->bIsFading = bInIsFadeOut || FMath::IsNearlyZero(AdjustVolumeLevel);
 
-	DECLARE_CYCLE_STAT(TEXT("USoundClassMixerSubsystem.SoundSubmix.AdjustVolume"), STAT_SoundSubmixAdjustVolume, STATGROUP_AudioThreadCommands);
-	FAudioThread::RunCommandOnAudioThread(
-		[FadeCurve, bInIsFadeOut, FoundSoundSubmixProps, AdjustVolumeDuration, AdjustVolumeLevel]
-		{
-			FSimpleFader& AudioClassFader = FoundSoundSubmixProps->Fader;
-
-			AudioClassFader.StartFade(AdjustVolumeLevel, AdjustVolumeDuration, static_cast<Audio::EFaderCurve>(FadeCurve));
-		},
-		GET_STATID(STAT_SoundSubmixAdjustVolume)
+	FoundSoundSubmixProps->Fader.StartFade(
+		AdjustVolumeLevel,
+		AdjustVolumeDuration,
+		static_cast<Audio::EFaderCurve>(FadeCurve)
 	);
 }
 
@@ -291,18 +267,6 @@ USoundSubmix* USoundClassMixerSubsystem::FindSoundSubmixByName(const FString& So
 
 void USoundClassMixerSubsystem::UpdateAudioClasses()
 {
-	// if (!IsInAudioThread())
-	// {
-	// 	check(IsInGameThread());
-	//
-	// 	FAudioThread::RunCommandOnAudioThread([Mixer = this]
-	// 		{
-	// 			Mixer->UpdateAudioClasses();
-	// 		}
-	// 	);
-	// 	return;
-	// }
-
 	const UWorld* World = GetWorld();
 	if (!World)
 	{
