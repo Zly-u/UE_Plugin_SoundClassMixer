@@ -69,12 +69,11 @@ void FSoundClassMixerCommands::RegisterCommands(USoundClassMixerSubsystem* InSou
 					UE_LOG(LogTemp, Error, TEXT("Could not find Sound Class with name: %s"), *SoundClassName);
 					return;
 				}
-				const FSoundSubSysProperties* FoundSoundClassProps = SoundClassMixerSubsystem->SoundClassMap.Find(FoundSoundClass);
 
 				SoundClassMixerSubsystem->AdjustSoundClassVolumeInternal(
 					FoundSoundClass,
 					AdjustVolumeDuration, AdjustVolumeLevel,
-					FoundSoundClassProps->Fader.GetVolume() > AdjustVolumeLevel,
+					FoundSoundClass->Properties.Volume > AdjustVolumeLevel,
 					EAudioFaderCurve::Linear 
 				);
 			}
@@ -186,13 +185,11 @@ void FSoundClassMixerCommands::RegisterCommands(USoundClassMixerSubsystem* InSou
 					UE_LOG(LogTemp, Error, TEXT("Could not find Sound Class with name: %s"), *SoundSubmixName);
 					return;
 				}
-				
-				const FSoundSubSysProperties* FoundSoundClassProps = SoundClassMixerSubsystem->SoundSubmixMap.Find(FoundSoundSubmix);
-	
+
 				SoundClassMixerSubsystem->AdjustSoundSubmixVolumeInternal(
 					FoundSoundSubmix,
 					AdjustVolumeDuration, AdjustVolumeLevel,
-					FoundSoundClassProps->Fader.GetVolume() > AdjustVolumeLevel,
+					FoundSoundSubmix->OutputVolume > AdjustVolumeLevel,
 					EAudioFaderCurve::Linear 
 				);
 			}
@@ -247,7 +244,7 @@ void FSoundClassMixerCommands::OnDrawDebug_SoundClass(UCanvas* Canvas, APlayerCo
 	for (const USoundClass* Key : Keys)
 	{
 		const FSoundSubSysProperties* Props = SoundClassMixerSubsystem->SoundClassMap.Find(Key);
-		Table.AddElement("Current Volume", Key->GetName(), FString::Printf(TEXT("%.4f"), Props->Fader.GetVolume()), FLinearColor::White);
+		Table.AddElement("Current Volume", Key->GetName(), FString::Printf(TEXT("%.4f"), Key->Properties.Volume), FLinearColor::White);
 		Table.AddElement("Target Volume", Key->GetName(), FString::Printf(TEXT("%.4f"), Props->Fader.GetTargetVolume()), FLinearColor::White);
 	}
 	
@@ -288,7 +285,7 @@ void FSoundClassMixerCommands::OnDrawDebug_SoundSubmix(UCanvas* Canvas, APlayerC
 	for (const USoundSubmix* Key : Keys)
 	{
 		const FSoundSubSysProperties* Props = SoundClassMixerSubsystem->SoundSubmixMap.Find(Key);
-		Table.AddElement("Current Volume", Key->GetName(), FString::Printf(TEXT("%.4f"), Props->Fader.GetVolume()), FLinearColor::White);
+		Table.AddElement("Current Volume", Key->GetName(), FString::Printf(TEXT("%.4f"), Key->OutputVolume), FLinearColor::White);
 		Table.AddElement("Target Volume", Key->GetName(), FString::Printf(TEXT("%.4f"), Props->Fader.GetTargetVolume()), FLinearColor::White);
 	}
 	

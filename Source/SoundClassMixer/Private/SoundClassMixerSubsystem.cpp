@@ -1,7 +1,10 @@
 ﻿#include "SoundClassMixerSubsystem.h"
 
+#include "ActiveSound.h"
+#include "AudioDevice.h"
 #include "SoundClassMixerSettings.h"
 #include "AssetRegistry/AssetRegistryModule.h"
+#include "Sound/SoundClass.h"
 #include "Sound/SoundSubmix.h"
 
 // =====================================================================================================================
@@ -30,7 +33,6 @@ void USoundClassMixerSubsystem::Deinitialize()
 
 ETickableTickType USoundClassMixerSubsystem::GetTickableTickType() const
 {
-	// By default (if the child class doesn't override GetTickableTickType), don't let CDOs ever tick: 
 	return IsTemplate()
 		? ETickableTickType::Never
 		: ETickableTickType::Always;
@@ -43,9 +45,6 @@ bool USoundClassMixerSubsystem::IsTickableWhenPaused() const
 
 bool USoundClassMixerSubsystem::IsAllowedToTick() const
 {
-	// No matter what IsTickable says, don't let CDOs or uninitialized world subsystems tick :
-	// Note: even if GetTickableTickType was overridden by the child class and returns something else than ETickableTickType::Never for CDOs, 
-	//  it's probably a mistake, so by default, don't allow ticking. If the child class really intends its CDO to tick, he can always override IsAllowedToTick...
 	return !IsTemplate() && bInitialized;
 }
 
@@ -61,9 +60,10 @@ void USoundClassMixerSubsystem::GatherSoundClasses()
 	const USoundClassMixerSettings* Settings = GetDefault<USoundClassMixerSettings>();
 	
 	SoundClassMap.Empty();
+	SoundSubmixMap.Empty();
 	
 	const FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
-    const IAssetRegistry& AssetRegistry = AssetRegistryModule.Get();
+	const IAssetRegistry& AssetRegistry = AssetRegistryModule.Get();
 	
 	FARFilter SoundClassFilter;
 	SoundClassFilter.ClassNames.Add(USoundClass::StaticClass()->GetFName());
@@ -76,7 +76,6 @@ void USoundClassMixerSubsystem::GatherSoundClasses()
 		if (Settings->ExcludedSoundClassNames.Find(AssetData.AssetName.ToString()) != INDEX_NONE)
 		{
 			UE_LOG(LogSoundClassMixerSubsystem, Verbose, TEXT("Excluded SoundClass by Name: %s"), *AssetData.AssetName.ToString());
-
 			continue;
 		}
 		
@@ -102,12 +101,9 @@ void USoundClassMixerSubsystem::GatherSoundClasses()
 		}
 
 		UE_LOG(LogSoundClassMixerSubsystem, Verbose, TEXT("Added SoundClass: %s"), *SoundClass->GetName());
-
-		FSoundSubSysProperties& SoundClassProps = SoundClassMap.Add(SoundClass);
-		SoundClassProps.Fader.SetVolume(SoundClass->Properties.Volume);
+		SoundClassMap.Add(SoundClass);
 	}
 
-	
 	FARFilter SoundSubmixFilter;
 	SoundSubmixFilter.ClassNames.Add(USoundSubmix::StaticClass()->GetFName());
 	SoundSubmixFilter.bRecursiveClasses = true;
@@ -123,10 +119,36 @@ void USoundClassMixerSubsystem::GatherSoundClasses()
 		}
 
 		UE_LOG(LogSoundClassMixerSubsystem, Verbose, TEXT("Added SoundSubmix: %s"), *SoundSubmix->GetName());
-
-		FSoundSubSysProperties& SoundSubmixProps = SoundSubmixMap.Add(SoundSubmix);
-		SoundSubmixProps.Fader.SetVolume(SoundSubmix->OutputVolume);
+		SoundSubmixMap.Add(SoundSubmix);
 	}
+
+	InitializeFadersOnAudioThread();
+}
+
+void USoundClassMixerSubsystem::InitializeFadersOnAudioThread()
+{
+	DECLARE_CYCLE_STAT(TEXT("USoundClassMixerSubsystem.InitializeFaders"), STAT_SoundClassMixerInitializeFaders, STATGROUP_AudioThreadCommands);
+	FAudioThread::RunCommandOnAudioThread(
+		[this]
+		{
+			for (TPair<USoundClass*, FSoundSubSysProperties>& Pair : SoundClassMap)
+			{
+				if (Pair.Key)
+				{
+					Pair.Value.Fader.SetVolume(Pair.Key->Properties.Volume);
+				}
+			}
+
+			for (TPair<USoundSubmix*, FSoundSubSysProperties>& Pair : SoundSubmixMap)
+			{
+				if (Pair.Key)
+				{
+					Pair.Value.Fader.SetVolume(Pair.Key->OutputVolume);
+				}
+			}
+		},
+		GET_STATID(STAT_SoundClassMixerInitializeFaders)
+	);
 }
 
 // =====================================================================================================================
@@ -147,7 +169,22 @@ void USoundClassMixerSubsystem::SetSoundClassVolumeInternal(
 	FSoundSubSysProperties* FoundSoundClassProps = SoundClassMap.Find(SoundClassAsset);
 	check(FoundSoundClassProps);
 
-	FoundSoundClassProps->Fader.SetVolume(AdjustVolumeLevel);
+	if (IsInAudioThread())
+	{
+		FoundSoundClassProps->Fader.SetVolume(AdjustVolumeLevel);
+		const_cast<USoundClass*>(SoundClassAsset)->Properties.Volume = AdjustVolumeLevel;
+		return;
+	}
+
+	DECLARE_CYCLE_STAT(TEXT("USoundClassMixerSubsystem.SoundClass.SetVolume"), STAT_SoundClassAdjustVolume, STATGROUP_AudioThreadCommands);
+	FAudioThread::RunCommandOnAudioThread(
+		[FoundSoundClassProps, SoundClassAsset, AdjustVolumeLevel]
+		{
+			FoundSoundClassProps->Fader.SetVolume(AdjustVolumeLevel);
+			const_cast<USoundClass*>(SoundClassAsset)->Properties.Volume = AdjustVolumeLevel;
+		},
+		GET_STATID(STAT_SoundClassAdjustVolume)
+	);
 }
 
 
@@ -175,10 +212,27 @@ void USoundClassMixerSubsystem::AdjustSoundClassVolumeInternal(
 	FSoundSubSysProperties* FoundSoundClassProps = SoundClassMap.Find(SoundClassAsset);
 	check(FoundSoundClassProps);
 
-	FoundSoundClassProps->Fader.StartFade(
-		AdjustVolumeLevel,
-		AdjustVolumeDuration,
-		static_cast<Audio::EFaderCurve>(FadeCurve)
+	if (IsInAudioThread())
+	{
+		FoundSoundClassProps->Fader.StartFade(
+			AdjustVolumeLevel,
+			AdjustVolumeDuration,
+			static_cast<Audio::EFaderCurve>(FadeCurve)
+		);
+		return;
+	}
+
+	DECLARE_CYCLE_STAT(TEXT("USoundClassMixerSubsystem.SoundClass.AdjustVolume"), STAT_SoundClassAdjustVolume, STATGROUP_AudioThreadCommands);
+	FAudioThread::RunCommandOnAudioThread(
+		[FoundSoundClassProps, AdjustVolumeDuration, AdjustVolumeLevel, FadeCurve]
+		{
+			FoundSoundClassProps->Fader.StartFade(
+				AdjustVolumeLevel,
+				AdjustVolumeDuration,
+				static_cast<Audio::EFaderCurve>(FadeCurve)
+			);
+		},
+		GET_STATID(STAT_SoundClassAdjustVolume)
 	);
 }
 
@@ -213,8 +267,24 @@ void USoundClassMixerSubsystem::SetSoundSubmixVolumeInternal(
 	FSoundSubSysProperties* FoundSoundSubmixProps = SoundSubmixMap.Find(SoundSubmixAsset);
 	check(FoundSoundSubmixProps);
 
-	FoundSoundSubmixProps->bIsFading = false;
-	FoundSoundSubmixProps->Fader.SetVolume(AdjustVolumeLevel);
+	if (IsInAudioThread())
+	{
+		FoundSoundSubmixProps->bIsFading = false;
+		FoundSoundSubmixProps->Fader.SetVolume(AdjustVolumeLevel);
+		ApplySubmixVolume(SoundSubmixAsset, AdjustVolumeLevel);
+		return;
+	}
+
+	DECLARE_CYCLE_STAT(TEXT("USoundClassMixerSubsystem.SoundSubmix.SetVolume"), STAT_SoundSubmixAdjustVolume, STATGROUP_AudioThreadCommands);
+	FAudioThread::RunCommandOnAudioThread(
+		[FoundSoundSubmixProps, SoundSubmixAsset, AdjustVolumeLevel, this]
+		{
+			FoundSoundSubmixProps->bIsFading = false;
+			FoundSoundSubmixProps->Fader.SetVolume(AdjustVolumeLevel);
+			ApplySubmixVolume(SoundSubmixAsset, AdjustVolumeLevel);
+		},
+		GET_STATID(STAT_SoundSubmixAdjustVolume)
+	);
 }
 
 void USoundClassMixerSubsystem::AdjustSoundSubmixVolumeInternal(
@@ -241,12 +311,29 @@ void USoundClassMixerSubsystem::AdjustSoundSubmixVolumeInternal(
 	FSoundSubSysProperties* FoundSoundSubmixProps = SoundSubmixMap.Find(SoundSubmixAsset);
 	check(FoundSoundSubmixProps);
 
-	FoundSoundSubmixProps->bIsFading = bInIsFadeOut || FMath::IsNearlyZero(AdjustVolumeLevel);
+	if (IsInAudioThread())
+	{
+		FoundSoundSubmixProps->bIsFading = bInIsFadeOut || FMath::IsNearlyZero(AdjustVolumeLevel);
+		FoundSoundSubmixProps->Fader.StartFade(
+			AdjustVolumeLevel,
+			AdjustVolumeDuration,
+			static_cast<Audio::EFaderCurve>(FadeCurve)
+		);
+		return;
+	}
 
-	FoundSoundSubmixProps->Fader.StartFade(
-		AdjustVolumeLevel,
-		AdjustVolumeDuration,
-		static_cast<Audio::EFaderCurve>(FadeCurve)
+	DECLARE_CYCLE_STAT(TEXT("USoundClassMixerSubsystem.SoundSubmix.AdjustVolume"), STAT_SoundSubmixAdjustVolume, STATGROUP_AudioThreadCommands);
+	FAudioThread::RunCommandOnAudioThread(
+		[FoundSoundSubmixProps, bInIsFadeOut, AdjustVolumeDuration, AdjustVolumeLevel, FadeCurve]
+		{
+			FoundSoundSubmixProps->bIsFading = bInIsFadeOut || FMath::IsNearlyZero(AdjustVolumeLevel);
+			FoundSoundSubmixProps->Fader.StartFade(
+				AdjustVolumeLevel,
+				AdjustVolumeDuration,
+				static_cast<Audio::EFaderCurve>(FadeCurve)
+			);
+		},
+		GET_STATID(STAT_SoundSubmixAdjustVolume)
 	);
 }
 
@@ -265,33 +352,57 @@ USoundSubmix* USoundClassMixerSubsystem::FindSoundSubmixByName(const FString& So
 
 // =====================================================================================================================
 
+void USoundClassMixerSubsystem::ApplySubmixVolume(const USoundSubmix* SoundSubmixAsset, float Volume)
+{
+	check(IsInAudioThread());
+
+	USoundSubmix* SoundSubmix = const_cast<USoundSubmix*>(SoundSubmixAsset);
+	SoundSubmix->OutputVolume = Volume;
+
+	if (UWorld* World = GetWorld())
+	{
+		if (FAudioDevice* AudioDevice = World->GetAudioDeviceRaw())
+		{
+			AudioDevice->SetSubmixOutputVolume(SoundSubmix, Volume);
+		}
+	}
+}
+
 void USoundClassMixerSubsystem::UpdateAudioClasses()
 {
-	const UWorld* World = GetWorld();
-	if (!World)
+	if (!IsInAudioThread())
 	{
+		check(IsInGameThread());
+
+		DECLARE_CYCLE_STAT(TEXT("USoundClassMixerSubsystem.Update"), STAT_SoundClassMixerUpdate, STATGROUP_AudioThreadCommands);
+		FAudioThread::RunCommandOnAudioThread(
+			[this]
+			{
+				UpdateAudioClasses();
+			},
+			GET_STATID(STAT_SoundClassMixerUpdate)
+		);
 		return;
 	}
-	
-	const float DeltaTime = GetWorld()->GetDeltaSeconds()
+
+	const float DeltaTime = FMath::Min(static_cast<float>(FApp::GetDeltaTime()), 0.5f);
+
 	for (TPair<USoundClass*, FSoundSubSysProperties>& Pair : SoundClassMap)
 	{
 		USoundClass* SoundClass = Pair.Key;
 		FSoundSubSysProperties& SoundClassProps = Pair.Value;
 
-		// Clamp the delta time to a reasonable max delta time.
-		SoundClassProps.Fader.Update(FMath::Min(DeltaTime, 0.5f));
+		SoundClassProps.Fader.Update(DeltaTime);
 		SoundClass->Properties.Volume = SoundClassProps.Fader.GetVolume();
 	}
-	
-	for (TPair<USoundSubmix*, FSoundSubSysProperties>& Pair :  SoundSubmixMap)
+
+	for (TPair<USoundSubmix*, FSoundSubSysProperties>& Pair : SoundSubmixMap)
 	{
 		USoundSubmix* SoundSubmix = Pair.Key;
 		FSoundSubSysProperties& SoundSubmixProps = Pair.Value;
 
-		// Clamp the delta time to a reasonable max delta time.
-		SoundSubmixProps.Fader.Update(FMath::Min(DeltaTime, 0.5f));
-		SoundSubmix->SetSubmixOutputVolume(World, SoundSubmixProps.Fader.GetVolume());
+		SoundSubmixProps.Fader.Update(DeltaTime);
+		ApplySubmixVolume(SoundSubmix, SoundSubmixProps.Fader.GetVolume());
 	}
 }
 

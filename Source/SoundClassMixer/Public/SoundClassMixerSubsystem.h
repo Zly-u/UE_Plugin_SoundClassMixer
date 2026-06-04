@@ -73,7 +73,14 @@ private:
 		EAudioFaderCurve    FadeCurve
 	);
 	USoundSubmix* FindSoundSubmixByName(const FString& SoundSubmixName);
-	
+
+	/** Sync fader state from asset defaults; runs on the audio thread. */
+	void InitializeFadersOnAudioThread();
+
+	/** Must be called on the audio thread. */
+	void ApplySubmixVolume(const USoundSubmix* SoundSubmixAsset, float Volume);
+
+	/** Fader update + volume apply; game thread Tick dispatches to the audio thread. */
 	void UpdateAudioClasses();
 
 	

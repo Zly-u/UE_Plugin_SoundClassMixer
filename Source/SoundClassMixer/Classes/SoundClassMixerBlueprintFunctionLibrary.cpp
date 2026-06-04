@@ -29,13 +29,12 @@ void USoundClassMixerBlueprintFunctionLibrary::SoundClassFadeTo(
 	USoundClassMixerSubsystem* SoundClassMixerSubsystem = GI->GetSubsystem<USoundClassMixerSubsystem>();
 	checkf(SoundClassMixerSubsystem, TEXT("SoundClassMixerSubsystem is invalid."))
 
-	const FSoundSubSysProperties* FoundSoundClassProps = SoundClassMixerSubsystem->SoundClassMap.Find(TargetClass);
-	checkf(FoundSoundClassProps, TEXT("SoundClass Properties are not found."))
-	
+	checkf(SoundClassMixerSubsystem->SoundClassMap.Find(TargetClass), TEXT("SoundClass Properties are not found."))
+
 	SoundClassMixerSubsystem->AdjustSoundClassVolumeInternal(
 		TargetClass,
 		FadeDuration, FadeVolumeLevel,
-		FoundSoundClassProps->Fader.GetVolume() > FadeVolumeLevel,
+		TargetClass->Properties.Volume > FadeVolumeLevel,
 		FadeCurve
 	);
 }
@@ -96,13 +95,12 @@ void USoundClassMixerBlueprintFunctionLibrary::SoundSubmixFadeTo(
 	USoundClassMixerSubsystem* SoundClassMixerSubsystem = GI->GetSubsystem<USoundClassMixerSubsystem>();
 	checkf(SoundClassMixerSubsystem, TEXT("SoundClassMixerSubsystem is invalid."))
 
-	const FSoundSubSysProperties* FoundSoundClassProps = SoundClassMixerSubsystem->SoundSubmixMap.Find(TargetClass);
-	checkf(FoundSoundClassProps, TEXT("SoundClass Properties are not found."))
-	
+	checkf(SoundClassMixerSubsystem->SoundSubmixMap.Find(TargetClass), TEXT("SoundSubmix Properties are not found."))
+
 	SoundClassMixerSubsystem->AdjustSoundSubmixVolumeInternal(
 		TargetClass,
 		FadeDuration, FadeVolumeLevel,
-		FoundSoundClassProps->Fader.GetVolume() > FadeVolumeLevel,
+		TargetClass->OutputVolume > FadeVolumeLevel,
 		FadeCurve
 	);
 }
