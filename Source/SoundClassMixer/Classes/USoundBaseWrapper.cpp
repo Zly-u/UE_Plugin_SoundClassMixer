@@ -9,8 +9,49 @@
 
 void USoundBaseWrapper::InheritSoundBase(USoundBase* OriginalSoundBase)
 {
+	if (!OriginalSoundBase)
+	{
+		return;
+	}
+
 	InnerSound = OriginalSoundBase;
-	SoundSubmixSends = InnerSound->SoundSubmixSends;
+
+	SoundClassObject = OriginalSoundBase->SoundClassObject;
+
+	bDebug = OriginalSoundBase->bDebug;
+
+	bOverrideConcurrency = OriginalSoundBase->bOverrideConcurrency;
+	bEnableBusSends      = OriginalSoundBase->bEnableBusSends;
+	bEnableBaseSubmix    = OriginalSoundBase->bEnableBaseSubmix;
+	bEnableSubmixSends   = OriginalSoundBase->bEnableSubmixSends;
+
+	bHasDelayNode        = OriginalSoundBase->bHasDelayNode;
+	bHasConcatenatorNode = OriginalSoundBase->bHasConcatenatorNode;
+
+	bBypassVolumeScaleForPriority = OriginalSoundBase->bBypassVolumeScaleForPriority;
+	VirtualizationMode            = OriginalSoundBase->VirtualizationMode;
+
+	// CurrentPlayCount - no need to copy.
+
+	ConcurrencySet       = OriginalSoundBase->ConcurrencySet;
+	ConcurrencyOverrides = OriginalSoundBase->ConcurrencyOverrides;
+
+	Duration     = OriginalSoundBase->Duration;
+	MaxDistance  = OriginalSoundBase->MaxDistance;
+	TotalSamples = OriginalSoundBase->TotalSamples;
+
+	Priority = OriginalSoundBase->Priority;
+
+	AttenuationSettings = OriginalSoundBase->AttenuationSettings;
+
+	SoundSubmixObject = OriginalSoundBase->SoundSubmixObject;
+	SoundSubmixSends  = OriginalSoundBase->SoundSubmixSends;
+
+	SourceEffectChain = OriginalSoundBase->SourceEffectChain;
+	BusSends          = OriginalSoundBase->BusSends;
+	PreEffectBusSends = OriginalSoundBase->PreEffectBusSends;
+
+	AssetUserData = OriginalSoundBase->AssetUserData;
 }
 
 

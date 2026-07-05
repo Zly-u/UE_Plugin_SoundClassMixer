@@ -19,7 +19,7 @@ class SOUNDCLASSMIXER_API USoundBaseWrapper : public USoundBase
 		USoundBase* InnerSound = nullptr;
 
 		/** When set, returned by GetSoundSubmix() instead of the inner sound's submix. */
-		UPROPERTY(EditAnywhere)
+		UPROPERTY(Transient)
 		USoundSubmixBase* SoundSubmixOverride = nullptr;
 
 		
