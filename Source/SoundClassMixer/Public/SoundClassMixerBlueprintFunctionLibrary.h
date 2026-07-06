@@ -2,11 +2,15 @@
 
 #include "Kismet/BlueprintFunctionLibrary.h"
 
+#include "Sound/SoundSourceBusSend.h"
+#include "SoundClassMixerSourceBusSendInfo.h"
+
 #include "SoundClassMixerBlueprintFunctionLibrary.generated.h"
 
 class USoundConcurrency;
 class USoundClass;
 class USoundSubmix;
+class UAudioComponent;
 enum class EAudioFaderCurve : uint8;
 
 
@@ -119,9 +123,44 @@ class SOUNDCLASSMIXER_API USoundClassMixerBlueprintFunctionLibrary : public UBlu
 		
 		
 	public:
-		UFUNCTION(BlueprintCallable, BlueprintCosmetic, Category = SoundClassMixerPlugin)
+		/**
+		 * Sets the Pre-Effect bus sends for a currently-playing AudioComponent.
+		 * Each entry in BusSends is forwarded to FActiveSound::SetSourceBusSend on the
+		 * audio thread, which overrides the SendLevel of an existing matching bus send
+		 * (matched by SoundSourceBus OR AudioBus pointer) or appends a new one if no
+		 * match is found. An entry may target either a source bus (set SoundSourceBus)
+		 * or an audio bus (set AudioBus) — the engine's SetBusSendffectInternal carried
+		 * both kinds in one call; here they're unified through the array entry's fields.
+		 *
+		 * Note: only SendLevel is merged on a match; other fields (control method,
+		 * min/max levels, distance range, custom curve) on an already-present bus send
+		 * are NOT updated by the engine's SetSourceBusSend. For a fresh entry, the
+		 * full FSoundSourceBusSendInfo is applied.
+		 *
+		 * Also note: the source sound asset must have bEnableBusSends = true for bus
+		 * sends to actually be processed by the mixer source.
+		 */
+		UFUNCTION(BlueprintCallable, Category = "SoundClassMixerPlugin|BusSends")
+		static void SetAudioBusSendsPreEffect(
+			UAudioComponent* AudioComponent,
+			const TArray<FSoundClassMixerSourceBusSendInfo>& BusSends
+		);
+
+		/**
+		 * Sets the Post-Effect bus sends for a currently-playing AudioComponent.
+		 * See SetSourceBusSendsPreEffect for semantics; this targets EBusSendType::PostEffect.
+		 */
+		UFUNCTION(BlueprintCallable, Category = "SoundClassMixerPlugin|BusSends")
+		static void SetAudioBusSendsPostEffect(
+			UAudioComponent* AudioComponent,
+			const TArray<FSoundClassMixerSourceBusSendInfo>& BusSends
+		);
+
+
+	public:
+		UFUNCTION(BlueprintCallable, BlueprintCosmetic, Category = "SoundClassMixerPlugin|Utils")
 			static float ConvertToLinear(const float Value);
 
-		UFUNCTION(BlueprintCallable, BlueprintCosmetic, Category = SoundClassMixerPlugin)
+		UFUNCTION(BlueprintCallable, BlueprintCosmetic, Category = "SoundClassMixerPlugin|Utils")
 			static float ConvertToDecibels(const float Value);
 };
